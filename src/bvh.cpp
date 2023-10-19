@@ -109,7 +109,20 @@ uint32_t BVH::nextNodeIdx()
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    glm::vec3 minCoordinates, maxCoordinates; // minCoordinate[0] is minimum x-coordinate, 
+                                              // minCoordinate[1] is minimum y-coordinate, and so on.
+
+    // loop through each coordinate (x, then y, then z)
+    for (int coord = 0; coord < 3; coord++) {
+        float v0Coord = primitive.v0.position[coord];
+        float v1Coord = primitive.v1.position[coord];
+        float v2Coord = primitive.v2.position[coord];
+
+        minCoordinates[coord] = std::min(v0Coord, std::min(v1Coord, v2Coord));
+        maxCoordinates[coord] = std::max(v0Coord, std::max(v1Coord, v2Coord));
+    }
+
+    return { .lower = minCoordinates, .upper = maxCoordinates };
 }
 
 // TODO: Standard feature
@@ -119,7 +132,22 @@ AxisAlignedBox computePrimitiveAABB(const BVHInterface::Primitive primitive)
 // This method is unit-tested, so do not change the function signature.
 AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitives)
 {
-    return { .lower = glm::vec3(0), .upper = glm::vec3(0) };
+    const AxisAlignedBox box0 = computePrimitiveAABB(primitives[0]);
+    glm::vec3 minCoordinates = box0.lower;
+    glm::vec3 maxCoordinates = box0.upper;
+
+    for (int i = 1; i < primitives.size(); i++) {
+        // Updating minCoordinates and maxCoordinates, so that primitives[i] is inside them.
+
+        const AxisAlignedBox box = computePrimitiveAABB(primitives[i]);
+
+        for (int coord = 0; coord < 3; coord++) {
+            minCoordinates[coord] = std::min(minCoordinates[coord], box.lower[coord]);
+            maxCoordinates[coord] = std::max(maxCoordinates[coord], box.upper[coord]);
+        }
+    }
+
+    return { .lower = minCoordinates, .upper = maxCoordinates };
 }
 
 // TODO: Standard feature
@@ -129,7 +157,10 @@ AxisAlignedBox computeSpanAABB(std::span<const BVHInterface::Primitive> primitiv
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive)
 {
-    return glm::vec3(0);
+    // Definition of the Centroid (of any figure) can be found at the top of this page:
+    // https://en.wikipedia.org/wiki/Centroid
+
+    return (primitive.v0.position + primitive.v1.position + primitive.v2.position) / 3.0f;
 }
 
 // TODO: Standard feature
@@ -140,7 +171,17 @@ glm::vec3 computePrimitiveCentroid(const BVHInterface::Primitive primitive)
 // This method is unit-tested, so do not change the function signature.
 uint32_t computeAABBLongestAxis(const AxisAlignedBox& aabb)
 {
-    return 0;
+    float xLength = aabb.upper.x - aabb.lower.x;
+    float yLength = aabb.upper.y - aabb.lower.y;
+    float zLength = aabb.upper.z - aabb.lower.z;
+
+    if (xLength >= yLength && xLength >= zLength) {
+        return 0;
+    } else if (yLength >= zLength) {
+        return 1;
+    } else {
+        return 2;
+    }
 }
 
 // TODO: Standard feature
