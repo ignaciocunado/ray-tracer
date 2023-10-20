@@ -31,9 +31,6 @@ void updateHitInfo(RenderState& state, const BVHInterface::Primitive& primitive,
     // Next, if `features.enableNormalMapping` is true, generate smoothly interpolated vertex normals
     if (state.features.enableNormalInterp) {
         hitInfo.normal = interpolateNormal(v0.normal, v1.normal, v2.normal, hitInfo.barycentricCoord);
-        line(v0.position, v0.normal);
-        line(v1.position, v1.normal);
-        line(v2.position, v2.normal);
         glm::vec3 calcP = glm::vec3 {
             hitInfo.barycentricCoord.x * v0.position.x,
             hitInfo.barycentricCoord.x * v0.position.y,
