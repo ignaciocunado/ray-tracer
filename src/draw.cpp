@@ -35,6 +35,18 @@ static void setMaterial(const Material& material)
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, glm::value_ptr(zero));
 }
 
+void line(const glm::vec3 start, const glm::vec3 dir)
+{
+    if (!enableDebugDraw) {
+        return;
+    }
+    glBegin(GL_LINES);
+    glVertex3fv(glm::value_ptr(start));
+    glm::vec3 finish = start + dir;
+    glVertex3fv(glm::value_ptr(finish));
+    glEnd();
+}
+
 void drawExampleOfCustomVisualDebug()
 {
     glBegin(GL_TRIANGLES);
