@@ -16,9 +16,9 @@ glm::vec3 computeBarycentricCoord(const glm::vec3& v0, const glm::vec3& v1, cons
     glm::vec3 na = glm::cross((v2 - v1), (p - v1));
     glm::vec3 nb = glm::cross((v0 - v2), (p - v2));
     glm::vec3 nc = glm::cross((v1 - v0), (p - v0));
-    float alpha = glm::dot(n, na) / pow(glm::length(n), 2);
-    float beta = glm::dot(n, nb) / pow(glm::length(n), 2);
-    float gamma = glm::dot(n, nc) / pow(glm::length(n), 2);
+    float alpha = glm::dot(n, na) / glm::dot(n,n);
+    float beta = glm::dot(n, nb) / glm::dot(n, n);
+    float gamma = glm::dot(n, nc) / glm::dot(n, n);
     return glm::vec3 { alpha, beta, gamma };
 }
 
