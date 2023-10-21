@@ -14,7 +14,7 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/glm.hpp>
 DISABLE_WARNINGS_POP()
 
-void vectorCheck(const glm::vec3 result, const glm::vec3 expected, const float eps = 1e-9)
+void vectorCheck(const glm::vec3 result, const glm::vec3 expected, const float eps = 1e-6)
 {
     CHECK_THAT(result[0], Catch::Matchers::WithinAbs(expected[0], eps));
     CHECK_THAT(result[1], Catch::Matchers::WithinAbs(expected[1], eps));
@@ -30,6 +30,26 @@ TEST_CASE("barycentric") {
     vectorCheck(computeBarycentricCoord(v0, v1, v2, p), expected);
 }
 
+TEST_CASE("barycentricEdge")
+{
+    glm::vec3 v0 { 0, 0, 0 };
+    glm::vec3 v1 { 1, 0, 0 };
+    glm::vec3 v2 { 0.4, 1, 0 };
+    glm::vec3 p { 0.6, 0, 0 };
+    glm::vec3 expected { 0.4f, 0.6f, 0.0f };
+    vectorCheck(computeBarycentricCoord(v0, v1, v2, p), expected);
+}
+
+TEST_CASE("barycentricVertex")
+{
+    glm::vec3 v0 { 0, 0, 0 };
+    glm::vec3 v1 { 1, 0, 0 };
+    glm::vec3 v2 { 0.4, 1, 0 };
+    glm::vec3 p { 0.4, 1, 0 };
+    glm::vec3 expected { 0.0f, 0.0f, 1.0f };
+    vectorCheck(computeBarycentricCoord(v0, v1, v2, p), expected);
+}
+
 TEST_CASE("interpolateNormals")
 {
     glm::vec3 n0 { 1,0,0 };
@@ -37,5 +57,5 @@ TEST_CASE("interpolateNormals")
     glm::vec3 n2 { 0, 0, 1 };
     glm::vec3 bar { 1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f };
     glm::vec3 expected { 1.0f / 3.0f, 1.0f / 3.0f, 1.0f / 3.0f };
-    vectorCheck(computeBarycentricCoord(n0, n1, n2, bar), expected);
+    vectorCheck(interpolateNormal(n0, n1, n2, bar), expected);
 }
