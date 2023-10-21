@@ -59,11 +59,20 @@ glm::vec3 computeShading(RenderState& state, const glm::vec3& cameraDirection, c
 // from the light, evaluate a Lambertian diffuse shading, returning the reflected light towards the target.
 glm::vec3 computeLambertianModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo)
 {
-    // Implement basic diffuse shading if you wish to use it
-    return sampleMaterialKd(state, hitInfo);
+    // Compute the dot product between the normal and the light direction
+    const float dot = glm::dot(hitInfo.normal, lightDirection);
+
+    // Check if the diffuse component should be computed
+    if (dot < 0) {
+        return glm::vec3(0.f);
+    }
+
+    const glm::vec3 materialKd = sampleMaterialKd(state, hitInfo);
+
+    // Compute the diffuse component
+    return lightColor * materialKd * dot;
 }
 
-// TODO: Standard feature
 // Given a camera direction, a light direction, a relevant intersection, and a color coming in
 // from the light, evaluate the Phong Model returning the reflected light towards the target.
 // Note: materials do not have an ambient component, so you can ignore this.
@@ -80,11 +89,27 @@ glm::vec3 computeLambertianModel(RenderState& state, const glm::vec3& cameraDire
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo)
 {
-    // TODO: Implement phong shading
-    return sampleMaterialKd(state, hitInfo) * lightColor;
+    // Compute the diffuse component
+    const glm::vec3 diffuse = computeLambertianModel(state, cameraDirection, lightDirection, lightColor, hitInfo);
+
+    // Compute the reflected ray direction and the dot product between the reflected ray direction and the camera direction
+    const glm::vec3 reflected = glm::reflect(lightDirection, hitInfo.normal);
+    const float dot = glm::dot(reflected, cameraDirection);
+
+    // Check if the specular component should be computed
+    if (dot < 0) {
+        return diffuse;
+    }
+
+    // Compute the specular component
+    const glm::vec3 materialKs = hitInfo.material.ks;
+    const float shininess = hitInfo.material.shininess;
+    const glm::vec3 specular = lightColor * materialKs * glm::pow(dot, shininess);
+
+    // Return the sum of the diffuse and specular components (ambient component is ignored)
+    return diffuse + specular;
 }
 
-// TODO: Standard feature
 // Given a camera direction, a light direction, a relevant intersection, and a color coming in
 // from the light, evaluate the Blinn-Phong Model returning the reflected light towards the target.
 // Note: materials do not have an ambient component, so you can ignore this.
@@ -101,11 +126,24 @@ glm::vec3 computePhongModel(RenderState& state, const glm::vec3& cameraDirection
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo)
 {
-    // TODO: Implement blinn-phong shading
-    return sampleMaterialKd(state, hitInfo) * lightColor;
+    // Compute the diffuse component
+    const glm::vec3 diffuse = computeLambertianModel(state, cameraDirection, lightDirection, lightColor, hitInfo);
+
+    // Check if the specular component should be computed
+    if (glm::dot(hitInfo.normal, lightDirection) < 0) {
+        return diffuse;
+    }
+
+    // Compute the specular component
+    const glm::vec3 H = glm::normalize(lightDirection + cameraDirection);
+    const float dot = glm::dot(hitInfo.normal, H);
+    const float shininess = hitInfo.material.shininess;
+    const glm::vec3 materialKs = hitInfo.material.ks;
+    const glm::vec3 specular = lightColor * materialKs * glm::pow(dot, shininess);
+
+    return diffuse + specular;
 }
 
-// TODO: Standard feature
 // Given a number ti between [-1, 1], sample from the gradient's components and return the
 // linearly interpolated color, for which ti lies in the interval between the t-values of two
 // components, or on a boundary. If ti falls outside the gradient's smallest/largest components,
@@ -114,10 +152,33 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 LinearGradient::sample(float ti) const
 {
-    return glm::vec3(0.5f);
+    // Check if the gradient is empty
+    if (components.empty()) {
+        return glm::vec3(0.f);
+    }
+
+    // Handle special cases when ti is outside the gradient's range
+    if (ti <= components.front().t) {
+        return components.front().color;
+    } else if (ti >= components.back().t) {
+        return components.back().color;
+    }
+
+    // Find the two components between which ti lies
+    auto it = std::lower_bound(components.begin(), components.end(), ti,[](const Component& component, float value) {
+        return component.t <= value;
+    });
+
+    const Component& component1 = *(it - 1);
+    const Component& component2 = *it;
+
+    // Compute the interpolation factor
+    const float t = (ti - component1.t) / (component2.t - component1.t);
+
+    // Interpolate between the two components
+    return glm::mix(component1.color, component2.color, t);
 }
 
-// TODO: Standard feature
 // Given a camera direction, a light direction, a relevant intersection, and a color coming in
 // from the light, evaluate a diffuse shading model, such that the diffuse component is sampled not
 // from the intersected material, but a provided linear gradient, based on the cosine of theta
@@ -134,6 +195,10 @@ glm::vec3 LinearGradient::sample(float ti) const
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeLinearGradientModel(RenderState& state, const glm::vec3& cameraDirection, const glm::vec3& lightDirection, const glm::vec3& lightColor, const HitInfo& hitInfo, const LinearGradient& gradient)
 {
+    // Compute the cosine of theta and sample the gradient
     float cos_theta = glm::dot(lightDirection, hitInfo.normal);
-    return glm::vec3(0.f);
+    glm::vec3 materialKd = gradient.sample(cos_theta);
+
+    // Calculate the diffuse component
+    return lightColor * materialKd;
 }
