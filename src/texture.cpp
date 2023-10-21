@@ -11,15 +11,18 @@
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
 {
-    // TODO: implement this function.
     // Note: the pixels are stored in a 1D array, row-major order. You can convert from (i, j) to
     //       an index using the method seen in the lecture.
     // Note: the center of the first pixel should be at coordinates (0.5, 0.5)
     // Given texcoords, return the corresponding pixel of the image
+
+    // Calculate i and j values 
     float i = texCoord[0] * image.width;
     float j = (1- texCoord[1]) * image.height;
-    float index = floor(3 * (j * image.width + i));
-    return image.pixels[index];
+
+    //Calculate the corresponding index and round down
+    float index = floor((j * image.width + i));
+    return image.pixels[index];q
 }
 
 // TODO: Standard feature
@@ -31,13 +34,48 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
 {
-    // TODO: implement this function.
     // Note: the pixels are stored in a 1D array, row-major order. You can convert from (i, j) to
     //       an index using the method seen in the lecture.
     // Note: the center of the first pixel should be at coordinates (0.5, 0.5)
     // Given texcoords, return the corresponding pixel of the image
-    // The pixel are stored in a 1D array of row major order
-    // you can convert from position (i,j) to an index using the method seen in the lecture
-    // Note, the center of the first pixel is at image coordinates (0.5, 0.5)
-    return image.pixels[0];
+
+    // Calculate i and j values
+    float i = texCoord[0] * image.width;
+    float j = (1 - texCoord[1]) * image.height;
+    
+    // Interpolate in the x direction
+    float i1 = floor(i);
+    float i2 = ceil(i);
+    if (i2 > image.width) {
+        i1--;
+        i2--;
+    }
+
+    float j1 = floor(j);
+    float j2 = ceil(j);
+    if (j2 > image.height) {
+        j1--;
+        j2--;
+    }
+
+    float distI1 = abs(i - i1 + 0.5f);
+    float distI2 = abs(i2 - i + 0.5f);
+
+    // Interpolate the first row in the x direction
+    glm::vec3 pix1 = image.pixels[floor((j1 * image.width + i1))];
+    glm::vec3 pix2 = image.pixels[floor((j1 * image.width + i2))];
+    glm::vec3 interpolatedX1 = distI2 * pix1 + distI1 * pix2;
+
+    // Interpolate the second row in the x direction
+    glm::vec3 pix3 = image.pixels[floor((j2 * image.width + i1))];
+    glm::vec3 pix4 = image.pixels[floor((j2 * image.width + i2))];
+    glm::vec3 interpolatedX2 = distI2 * pix3 + distI1 * pix4;
+
+    // Interpolate in the y direction
+    float distJ1 = abs(j - j1 + 0.5f);
+    float distJ2 = abs(j2 - j + 0.5f);
+
+    glm::vec3 res = distJ2 * interpolatedX1 + distJ1 * interpolatedX2;
+    
+    return res;
 }
