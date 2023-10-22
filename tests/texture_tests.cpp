@@ -34,7 +34,7 @@ TEST_CASE("nearest2")
     image.pixels = std::vector<glm::vec3> {
         glm::vec3 { 1 }, glm::vec3 { 2 }, glm::vec3 { 3 }, glm::vec3 { 4 }, glm::vec3 { 5 }, glm::vec3 { 6 }, glm::vec3 { 7 }, glm::vec3 { 8 }, glm::vec3 { 9 }
     };
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 1,0 }), glm::vec3 { 9 });
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 1 ,0 }), glm::vec3 { 9 });
 }
 
 TEST_CASE("nearest3")
@@ -45,7 +45,7 @@ TEST_CASE("nearest3")
     image.pixels = std::vector<glm::vec3> {
         glm::vec3 { 1 }, glm::vec3 { 2 }, glm::vec3 { 3 }, glm::vec3 { 4 }, glm::vec3 { 5 }, glm::vec3 { 6 }, glm::vec3 { 7 }, glm::vec3 { 8 }, glm::vec3 { 9 }
     };
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.5, 0.5 }), glm::vec3 { 5 });
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 1, 1 }), glm::vec3 { 3 });
 }
 
 TEST_CASE("nearest4")
@@ -56,10 +56,22 @@ TEST_CASE("nearest4")
     image.pixels = std::vector<glm::vec3> {
         glm::vec3 { 1 }, glm::vec3 { 2 }, glm::vec3 { 3 }, glm::vec3 { 4 }, glm::vec3 { 5 }, glm::vec3 { 6 }, glm::vec3 { 7 }, glm::vec3 { 8 }, glm::vec3 { 9 }
     };
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 0, 1 }), glm::vec3 { 1 });
+}
+
+
+TEST_CASE("nearest5")
+{
+    Image image = Image("../../../../tests/image.png");
+    image.height = 3;
+    image.width = 3;
+    image.pixels = std::vector<glm::vec3> {
+        glm::vec3 { 1 }, glm::vec3 { 2 }, glm::vec3 { 3 }, glm::vec3 { 4 }, glm::vec3 { 5 }, glm::vec3 { 6 }, glm::vec3 { 7 }, glm::vec3 { 8 }, glm::vec3 { 9 }
+    };
     vec3Check(sampleTextureNearest(image, glm::vec2 { 0.8, 0.5 }), glm::vec3 { 6 });
 }
 
-TEST_CASE("nearest5")
+TEST_CASE("nearest6")
 {
     Image image = Image("../../../../tests/image.png");
     image.height = 5;
@@ -75,7 +87,7 @@ TEST_CASE("nearest5")
 }
 
 
-TEST_CASE("nearest6")
+TEST_CASE("nearest7")
 {
     Image image = Image("../../../../tests/image.png");
     image.height = 5;
