@@ -81,7 +81,7 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
     };
 
     // Draw debug rays
-    drawLine(intersection, hitInfo.normal);
+    drawLine(intersection, hitInfo.normal, glm::vec3{1,0,0});
     drawRay(reflectedRay, glm::vec3{0,0,1});
 
     return reflectedRay;
