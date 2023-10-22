@@ -20,8 +20,17 @@ glm::vec3 sampleTextureNearest(const Image& image, const glm::vec2& texCoord)
     float i = texCoord[0] * image.width;
     float j = (1- texCoord[1]) * image.height;
 
+    if (i == image.width) {
+        i--;
+    }
+    if (j == image.height) {
+        j--;
+    }
+
     //Calculate the corresponding index and round down
-    float index = floor((j * image.width + i));
+    float downJ = floor(j);
+    float downI = floor(i);
+    float index = downJ * image.width + downI;
     return image.pixels[index];
 }
 
