@@ -96,8 +96,13 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 // This method is unit-tested, so do not change the function signature.
 Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 {
-    // TODO: generate a passthrough ray
-    return Ray {};
+    // Calculate the intersection of ray and surface
+    glm::vec3 intersection = ray.origin + ray.t * ray.direction;
+    Ray passthrough { intersection, ray.direction };
+
+    // Draw debug ray
+    drawRay(passthrough, glm::vec3 { 1,1,1 });
+    return passthrough;
 }
 
 // TODO: standard feature
