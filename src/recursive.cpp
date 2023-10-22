@@ -82,7 +82,7 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 
     // Draw debug rays
     drawLine(intersection, hitInfo.normal);
-    drawRay(reflectedRay, glm::vec3{1,1,1});
+    drawRay(reflectedRay, glm::vec3{0,0,1});
 
     return reflectedRay;
 }
@@ -101,7 +101,7 @@ Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
     Ray passthrough { intersection, ray.direction };
 
     // Draw debug ray
-    drawRay(passthrough, glm::vec3 { 1,1,1 });
+    drawRay(passthrough, glm::vec3 { 0,0,1 });
     return passthrough;
 }
 
