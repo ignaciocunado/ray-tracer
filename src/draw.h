@@ -18,7 +18,7 @@ extern bool enableDebugDraw;
 void drawExampleOfCustomVisualDebug();
 
 void drawRay(const Ray& ray, const glm::vec3& color = glm::vec3(1.0f));
-void drawLine(const glm::vec3 start, const glm::vec3 dir);
+void drawLine(const glm::vec3 start, const glm::vec3 dir, const glm::vec3 colour);
 void drawAABB(const AxisAlignedBox& box, DrawMode drawMode = DrawMode::Filled, const glm::vec3& color = glm::vec3(1.0f), float transparency = 1.0f);
 
 void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2 );
