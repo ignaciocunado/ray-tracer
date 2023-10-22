@@ -102,6 +102,7 @@ Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 
     // Draw debug ray
     drawRay(passthrough, glm::vec3 { 0,0,1 });
+
     return passthrough;
 }
 
@@ -133,7 +134,6 @@ void renderRaySpecularComponent(RenderState& state, Ray ray, const HitInfo& hitI
 // This method is unit-tested, so do not change the function signature.
 void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
-    // TODO; you should first implement generatePassthroughRay()
-    Ray r = generatePassthroughRay(ray, hitInfo);
-    // ...
+    Ray passthrough = generatePassthroughRay(ray, hitInfo);
+    hitColor += (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency);
 }
