@@ -112,9 +112,8 @@ Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 // This method is unit-tested, so do not change the function signature.
 void renderRaySpecularComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
-    // TODO; you should first implement generateReflectionRay()
-    Ray r = generateReflectionRay(ray, hitInfo);
-    // ...
+    Ray reflection = generateReflectionRay(ray, hitInfo);
+    hitColor += (renderRay(state, reflection, rayDepth + 1) * hitInfo.material.ks);
 }
 
 // TODO: standard feature
