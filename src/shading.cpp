@@ -157,15 +157,22 @@ glm::vec3 LinearGradient::sample(float ti) const
         return glm::vec3(0.f);
     }
 
+    // Sort the components vector based on the 't' values
+    std::vector<Component> sortedComponents = components;
+
+    std::sort(sortedComponents.begin(), sortedComponents.end(), [](const auto& component1, const auto& component2) {
+        return component1.t < component2.t;
+    });
+
     // Handle special cases when ti is outside the gradient's range
-    if (ti <= components.front().t) {
-        return components.front().color;
-    } else if (ti >= components.back().t) {
-        return components.back().color;
+    if (ti <= sortedComponents.front().t) {
+        return sortedComponents.front().color;
+    } else if (ti >= sortedComponents.back().t) {
+        return sortedComponents.back().color;
     }
 
     // Find the two components between which ti lies
-    auto it = std::lower_bound(components.begin(), components.end(), ti,[](const Component& component, float value) {
+    auto it = std::lower_bound(sortedComponents.begin(), sortedComponents.end(), ti,[](const auto& component, float value) {
         return component.t <= value;
     });
 
