@@ -71,9 +71,20 @@ glm::vec3 renderRay(RenderState& state, Ray ray, int rayDepth)
 // This method is unit-tested, so do not change the function signature.
 Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 {
-    // TODO: generate a mirrored ray
-    //       if you use glm::reflect, you will not get points for this method!
-    return Ray {};
+    // Calculate intersection of ray and surface and compute reflection
+    glm::vec3 intersection = ray.origin + ray.direction * ray.t;
+    glm::vec3 incoming = intersection - ray.origin;
+    glm::vec3 reflected = incoming - 2 * glm::dot(incoming, hitInfo.normal) * hitInfo.normal;
+    Ray reflectedRay {
+        .origin = intersection,
+        .direction = reflected
+    };
+
+    // Draw debug rays
+    drawLine(intersection, hitInfo.normal);
+    drawRay(reflectedRay, glm::vec3{1,1,1});
+
+    return reflectedRay;
 }
 
 // TODO: Standard feature
