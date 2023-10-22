@@ -70,23 +70,71 @@ TEST_CASE("nearest4")
 TEST_CASE("nearest5")
 {
     Image image = imageGenerator3x3();
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.8, 0.5 }), glm::vec3 { 6 });
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.8f, 0.5f }), glm::vec3 { 6 });
 }
 
 TEST_CASE("nearest6")
 {
     Image image = imageGenerator5x5();
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.5, 0.5 }), glm::vec3 { 13 });
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.5f, 0.5f }), glm::vec3 { 13 });
 }
 
 TEST_CASE("nearest7")
 {
     Image image = imageGenerator5x5();
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.3, 0.7 }), glm::vec3 { 7 });
+    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.3f, 0.7f }), glm::vec3 { 7 });
 }
 
 TEST_CASE("bilinear1")
 {
     Image image = imageGenerator5x5();
-    vec3Check(sampleTextureNearest(image, glm::vec2 { 0.3, 0.7 }), glm::vec3 { 7 });
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0, 0 }), glm::vec3 { 21 });
+}
+
+TEST_CASE("bilinear2")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0, 1 }), glm::vec3 { 1 });
+}
+
+TEST_CASE("bilinear3")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 1, 0 }), glm::vec3 { 25 });
+}
+
+TEST_CASE("bilinear4")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 1, 1 }), glm::vec3 { 5 });
+}
+
+TEST_CASE("bilinear5")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.2f, 0.2f }), glm::vec3 { 19 });
+}
+
+TEST_CASE("bilinear6")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.1f, 0.1f }), glm::vec3 { 21 });
+}
+
+TEST_CASE("bilinear7")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.5f, 0.0f }), glm::vec3 { 23 });
+}
+
+TEST_CASE("bilinear8")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.25f, 0.15f }), glm::vec3 { 20.5f });
+}
+
+TEST_CASE("bilinear9")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.65f, 0.45f }), glm::vec3 { 15 });
 }

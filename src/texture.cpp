@@ -48,41 +48,62 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     // Note: the center of the first pixel should be at coordinates (0.5, 0.5)
     // Given texcoords, return the corresponding pixel of the image
 
-    // Calculate i and j values
-    float i = texCoord[0] * image.width;
-    float j = (1 - texCoord[1]) * image.height;
+    // Calculate coordinates
+
+    float x = texCoord[0] * image.width;
+    float y = (1 - texCoord[1]) * image.height;
+
+    // Check if we were given any of the cornerns or edges
+    if (x == 0 && y == 0 || x == image.width && y == 0 || x == 0 && y == image.height || x == image.width && y == image.height || x <= 0.5f || x >= image.width - 0.5f || y <= 0.5f || y >= image.height - 0.5f) {
+        if (x >= image.width) {
+            x--;
+        }
+        if (y >= image.height) {
+            y--;
+        }
+        float index = floor(y) * image.width + floor(x);
+        return image.pixels[index]; 
+    }
     
     // Interpolate in the x direction
-    float i1 = floor(i);
-    float i2 = ceil(i);
-    if (i2 > image.width) {
+    float i1 = round(x) - 0.5f;
+    float i2 = round(x) + 0.5f;
+    if (i2 >= image.width) {
         i1--;
         i2--;
     }
+    if (i1 <= 0) {
+        i1++;
+        i2++;
+    }
 
-    float j1 = floor(j);
-    float j2 = ceil(j);
-    if (j2 > image.height) {
+    float j1 = round(y) - 0.5f;
+    float j2 = round(y) + 0.5f;
+    if (j2 >= image.height) {
         j1--;
         j2--;
     }
+    if (i1 <= 0) {
+        j1++;
+        j2++;
+    }
 
-    float distI1 = abs(i - i1 + 0.5f);
-    float distI2 = abs(i2 - i + 0.5f);
+    float distI1 = abs(x - i1);
+    float distI2 = abs(i2 - x);
 
     // Interpolate the first row in the x direction
-    glm::vec3 pix1 = image.pixels[floor((j1 * image.width + i1))];
-    glm::vec3 pix2 = image.pixels[floor((j1 * image.width + i2))];
+    glm::vec3 pix1 = image.pixels[floor(j1) * image.width + floor(i1)];
+    glm::vec3 pix2 = image.pixels[floor(j1) * image.width + floor(i2)];
     glm::vec3 interpolatedX1 = distI2 * pix1 + distI1 * pix2;
 
     // Interpolate the second row in the x direction
-    glm::vec3 pix3 = image.pixels[floor((j2 * image.width + i1))];
-    glm::vec3 pix4 = image.pixels[floor((j2 * image.width + i2))];
+    glm::vec3 pix3 = image.pixels[floor(j2) * image.width + floor(i1)];
+    glm::vec3 pix4 = image.pixels[floor(j2) * image.width + floor(i2)];
     glm::vec3 interpolatedX2 = distI2 * pix3 + distI1 * pix4;
 
     // Interpolate in the y direction
-    float distJ1 = abs(j - j1 + 0.5f);
-    float distJ2 = abs(j2 - j + 0.5f);
+    float distJ1 = abs(y - j1);
+    float distJ2 = abs(j2 - y);
 
     glm::vec3 res = distJ2 * interpolatedX1 + distJ1 * interpolatedX2;
     
