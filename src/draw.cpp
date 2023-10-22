@@ -35,12 +35,13 @@ static void setMaterial(const Material& material)
     glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, glm::value_ptr(zero));
 }
 
-void drawLine(const glm::vec3 start, const glm::vec3 dir)
+void drawLine(const glm::vec3 start, const glm::vec3 dir, const glm::vec3 colour)
 {
     if (!enableDebugDraw) {
         return;
     }
     glBegin(GL_LINES);
+    glColor3fv(glm::value_ptr(colour));
     glVertex3fv(glm::value_ptr(start));
     glVertex3fv(glm::value_ptr(start + dir));
     glEnd();
