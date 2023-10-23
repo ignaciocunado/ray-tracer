@@ -129,14 +129,16 @@ glm::vec3 computeBlinnPhongModel(RenderState& state, const glm::vec3& cameraDire
     // Compute the diffuse component
     const glm::vec3 diffuse = computeLambertianModel(state, cameraDirection, lightDirection, lightColor, hitInfo);
 
+    // Compute the half vector and the dot product between the normal and the half vector
+    const glm::vec3 H = glm::normalize(lightDirection + cameraDirection);
+    const float dot = glm::dot(hitInfo.normal, H);
+
     // Check if the specular component should be computed
-    if (glm::dot(hitInfo.normal, lightDirection) < 0) {
+    if (dot < 0) {
         return diffuse;
     }
 
     // Compute the specular component
-    const glm::vec3 H = glm::normalize(lightDirection + cameraDirection);
-    const float dot = glm::dot(hitInfo.normal, H);
     const float shininess = hitInfo.material.shininess;
     const glm::vec3 materialKs = hitInfo.material.ks;
     const glm::vec3 specular = lightColor * materialKs * glm::pow(dot, shininess);
