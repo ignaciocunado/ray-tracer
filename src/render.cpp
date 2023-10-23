@@ -120,7 +120,7 @@ std::vector<Ray> generatePixelRaysStratified(RenderState& state, const Trackball
     // Loop and divide pixel in N*N cells, draw a ray for each cell
     for (int p = 0; p < numSamples; p++) {
         for (int q = 0; q < numSamples; q++) {
-            glm::vec2 position = (glm::vec2 { pixel[0] + (p + state.sampler.next_1d()) / numSamples, pixel[0] + (q + state.sampler.next_1d()) / numSamples }) / glm::vec2(screenResolution) * 2.f - 1.f;
+            glm::vec2 position = (glm::vec2 { pixel[0] + (p + state.sampler.next_1d()) / numSamples, pixel[1] + (q + state.sampler.next_1d()) / numSamples }) / glm::vec2(screenResolution) * 2.f - 1.f;
             Ray ray = camera.generateRay(position);
             rays.push_back(ray);
         }
