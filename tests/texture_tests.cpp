@@ -138,3 +138,15 @@ TEST_CASE("bilinear9")
     Image image = imageGenerator5x5();
     vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.65f, 0.45f }), glm::vec3 { 15 });
 }
+
+TEST_CASE("bilinear10")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.9f, 0.5f }), glm::vec3 { 15 });
+}
+
+TEST_CASE("bilinear11")
+{
+    Image image = imageGenerator5x5();
+    vec3Check(sampleTextureBilinear(image, glm::vec2 { 0.01f, 0.5f }), glm::vec3 { 11 });
+}

@@ -68,25 +68,9 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     // Interpolate in the x direction
     float i1 = round(x) - 0.5f;
     float i2 = round(x) + 0.5f;
-    if (i2 >= image.width) {
-        i1--;
-        i2--;
-    }
-    if (i1 <= 0) {
-        i1++;
-        i2++;
-    }
 
     float j1 = round(y) - 0.5f;
     float j2 = round(y) + 0.5f;
-    if (j2 >= image.height) {
-        j1--;
-        j2--;
-    }
-    if (i1 <= 0) {
-        j1++;
-        j2++;
-    }
 
     float distI1 = abs(x - i1);
     float distI2 = abs(i2 - x);
