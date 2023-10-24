@@ -41,6 +41,17 @@ size_t splitPrimitivesByMedian(const AxisAlignedBox& aabb, uint32_t axis, std::s
 // This method is unit-tested, so do not change the function signature.
 bool intersectRayWithBVH(RenderState& state, const BVHInterface& bvh, Ray& ray, HitInfo& hitInfo);
 
+// Helper function for traversing the BVH.
+// Called by intersectRayWithBVH(...).
+// Note that when calling this function it is assumed 
+// that state.features.enableAccelStructure is true.
+bool intersectRayWithBVHWhenEnabledAccel(RenderState& state, const BVHInterface& bvh, Ray& ray, HitInfo& hitInfo);
+
+// Helper function for ray-primitive (ray-triangle) intersection.
+// Also updates hitInfo.
+// Called by intersectRayWithBVH(...) and by intersectRayWithBVHWhenEnabledAccel(...).
+bool intersectRayWithPrimitive(RenderState& state, const BVHInterface::Primitive& primitive, Ray& ray, HitInfo& hitInfo);
+
 // The implementing class where you will put most of the BVH implementation; this class must conform
 // to BVHInterface for grading purposes; see `bvh_interface.h` for details
 struct BVH : public BVHInterface {
@@ -89,6 +100,9 @@ private: // Visual debug helpers
     // Compute the nr. of leaves in your hierarchy after construction; useful for debugDrawLeaf()
     // You are free to modify this function's signature, as long as the constructor builds a BVH
     void buildNumLeaves();
+
+    // Helper function which calculates the level (depth) for each node.
+    void calculateLevels(std::vector<uint32_t>& levelsToFillIn);
 
 public: // Visual debug
     // Draw the bounding boxes of the nodes at the selected level.
