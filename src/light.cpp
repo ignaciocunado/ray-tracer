@@ -24,9 +24,14 @@ DISABLE_WARNINGS_POP()
 // This method is unit-tested, so do not change the function signature.
 void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec3& position, glm::vec3& color)
 {
-    // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    glm::vec3 p0 = light.endpoint0;
+    glm::vec3 p1 = light.endpoint1;
+
+    glm::vec3 c0 = light.color0;
+    glm::vec3 c1 = light.color1;
+
+    position = glm::mix(p0, p1, sample);
+    color = glm::mix(c0, c1, sample);
 }
 
 // TODO: Standard feature
@@ -40,9 +45,23 @@ void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec
 // This method is unit-tested, so do not change the function signature.
 void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight& light, glm::vec3& position, glm::vec3& color)
 {
-    // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    glm::vec3 p0 = light.v0;
+    glm::vec3 p1 = light.v0 + light.edge01;
+    glm::vec3 p2 = light.v0 + light.edge02;
+    glm::vec3 p3 = light.v0 + light.edge01 + light.edge02;
+
+    glm::vec3 c0 = light.color0;
+    glm::vec3 c1 = light.color1;
+    glm::vec3 c2 = light.color2;
+    glm::vec3 c3 = light.color3;
+
+    glm::vec3 p01 = glm::mix(p0, p1, sample.x);
+    glm::vec3 p23 = glm::mix(p2, p3, sample.x);
+    position = glm::mix(p01, p23, sample.y);
+
+    glm::vec3 c01 = glm::mix(c0, c1, sample.x);
+    glm::vec3 c23 = glm::mix(c2, c3, sample.x);
+    color = glm::mix(c01, c23, sample.y);
 }
 
 // TODO: Standard feature
@@ -62,8 +81,20 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         // Shadows are disabled in the renderer
         return true;
     } else {
-        // Shadows are enabled in the renderer
-        // TODO: implement this function; currently, the light simply passes through
+        // Create a ray from the intersection point to the light source
+        glm::vec3 hitPoint = ray.origin + ray.t * ray.direction;
+        glm::vec3 shadowRayDirection = glm::normalize(lightPosition - hitPoint);
+        float shadowRayLength = glm::length(lightPosition - hitPoint);
+        Ray shadowRay = {hitPoint, shadowRayDirection, shadowRayLength};
+        HitInfo shadowHitInfo;
+
+        // Use the BVH intersect function to check for occlusions
+        if (state.bvh.intersect(state, shadowRay, shadowHitInfo)) {
+            // Check if the shadow ray hit an object before the light source
+            return shadowRay.t > shadowRayLength - glm::epsilon<float>();
+        }
+
+        // The shadow ray didn't hit any objects, so the light is visible
         return true;
     }
 }
@@ -85,8 +116,11 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
-    // TODO: implement this function; currently, the light simply passes through
-    return lightColor;
+    if (visibilityOfLightSampleBinary(state, lightPosition, lightColor, ray, hitInfo)) {
+        return lightColor * hitInfo.material.kd * (1 - hitInfo.material.transparency);
+    } else {
+        return glm::vec3(0);
+    }
 }
 
 // TODO: Standard feature
@@ -104,11 +138,19 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& light, const Ray& ray, const HitInfo& hitInfo)
 {
-    // TODO: modify this function to incorporate visibility corerctly
+    glm::vec3 visibleColor = visibilityOfLightSample(state, light.position, light.color, ray, hitInfo);
+
+    // If the light is not visible, return black
+    if (visibleColor == glm::vec3(0)) {
+        return glm::vec3(0);
+    }
+
     glm::vec3 p = ray.origin + ray.t * ray.direction;
     glm::vec3 l = glm::normalize(light.position - p);
     glm::vec3 v = -ray.direction;
-    return computeShading(state, v, l, light.color, hitInfo);
+
+    // Compute the shading for the point light using the visible color
+    return computeShading(state, v, l, visibleColor, hitInfo);
 }
 
 // TODO: Standard feature
@@ -131,10 +173,17 @@ glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& li
 glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight& light, const Ray& ray, const HitInfo& hitInfo, uint32_t numSamples)
 {
     // TODO: implement this function; repeat numSamples times:
-    // - sample the segment light
-    // - test the sample's visibility
-    // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 Lo { 0.0f };
+
+    for (uint32_t i = 0; i < numSamples; i++) {
+        // - sample the segment light
+        glm::vec3 position, color;
+        sampleSegmentLight(state.sampler.next_1d(), light, position, color);
+
+        Lo += computeContributionPointLight(state, PointLight {position, color}, ray, hitInfo);
+    }
+
+    return Lo;
 }
 
 // TODO: Standard feature
@@ -158,10 +207,17 @@ glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight
 glm::vec3 computeContributionParallelogramLight(RenderState& state, const ParallelogramLight& light, const Ray& ray, const HitInfo& hitInfo, uint32_t numSamples)
 {
     // TODO: implement this function; repeat numSamples times:
-    // - sample the parallellogram light
-    // - test the sample's visibility
-    // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 Lo { 0.0f };
+
+    for (uint32_t i = 0; i < numSamples; i++) {
+        // - sample the parallelogram light
+        glm::vec3 position, color;
+        sampleParallelogramLight(state.sampler.next_2d(), light, position, color);
+
+        Lo += computeContributionPointLight(state, PointLight {position, color}, ray, hitInfo);
+    }
+
+    return Lo;
 }
 
 // This function is provided as-is. You do not have to implement it.
