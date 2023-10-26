@@ -208,6 +208,7 @@ int main(int argc, char** argv)
                 }
                 ImGui::Checkbox("Environment maps", &config.features.extra.enableEnvironmentMap);
                 ImGui::Checkbox("Texture filtering (mipmap)", &config.features.extra.enableMipmapTextureFiltering);
+                ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 50);
             }
 
             if (ImGui::TreeNode("Camera(read only)")) {
