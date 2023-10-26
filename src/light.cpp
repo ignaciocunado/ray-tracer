@@ -81,17 +81,17 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         // Shadows are disabled in the renderer
         return true;
     } else {
-        // Create a ray from the intersection point to the light source
+        // Create a ray from the light position to the hit point
         glm::vec3 hitPoint = ray.origin + ray.t * ray.direction;
-        glm::vec3 shadowRayDirection = glm::normalize(lightPosition - hitPoint);
-        float shadowRayLength = glm::length(lightPosition - hitPoint);
-        Ray shadowRay = {hitPoint, shadowRayDirection, shadowRayLength};
+        glm::vec3 shadowRayDirection = glm::normalize(hitPoint - lightPosition);
+        float shadowRayLength = glm::length(hitPoint - lightPosition);
+        Ray shadowRay = {lightPosition, shadowRayDirection, shadowRayLength};
         HitInfo shadowHitInfo;
 
         // Use the BVH intersect function to check for occlusions
         if (state.bvh.intersect(state, shadowRay, shadowHitInfo)) {
             // Check if the shadow ray hit an object before the light source
-            return shadowRay.t > shadowRayLength - glm::epsilon<float>();
+            return abs(shadowRay.t - shadowRayLength) <= 0.0001f;
         }
 
         // The shadow ray didn't hit any objects, so the light is visible
