@@ -135,4 +135,5 @@ void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& h
 {
     Ray passthrough = generatePassthroughRay(ray, hitInfo);
     hitColor += (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency);
+    drawRay(passthrough, hitColor);
 }
