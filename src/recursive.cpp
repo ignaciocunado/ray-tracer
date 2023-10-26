@@ -72,11 +72,13 @@ glm::vec3 renderRay(RenderState& state, Ray ray, int rayDepth)
 Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
 {
     // Calculate intersection of ray and surface and compute reflection
-    glm::vec3 intersection = ray.origin + ray.direction * ray.t;;
-    glm::vec3 reflected = glm::normalize(ray.direction) - 2 * glm::dot(glm::normalize(ray.direction), hitInfo.normal) * hitInfo.normal;
-    Ray reflectedRay {
-        .origin = intersection,
-        .direction = reflected
+    glm::vec3 intersection = ray.origin + (ray.direction * ray.t);
+    glm::vec3 reflected = glm::normalize(glm::normalize(ray.direction) - 2.0f * glm::dot(glm::normalize(ray.direction), hitInfo.normal) * hitInfo.normal);
+    Ray reflectedRay
+    {
+        .origin = intersection + hitInfo.normal * 1.0e-6f,
+        .direction = reflected,
+        .t = std::numeric_limits<float>::max()
     };
 
     // Draw debug rays
