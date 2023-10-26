@@ -4,6 +4,9 @@
 #include "recursive.h"
 #include "shading.h"
 #include <framework/trackball.h>
+#ifdef NDEBUG
+#include <omp.h>
+#endif
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
@@ -30,6 +33,44 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 {
     if (!features.extra.enableMotionBlur) {
         return;
+    }
+    /*static glm::mat4 spliceMat(float t)
+    {
+        if (t >= 1) {
+            t = 0;
+        }
+        glm::vec3 p0 { 0, 0, 0 };
+        glm::vec3 p1 { 0, 5, 0 };
+        glm::vec3 p2 { 5, 5, 0 };
+        glm::vec3 p3 { 5, 0, 0 };
+        glm::vec3 posBezier = ((1.0f - t) * (1.0f - t) * (1.0f - t) * p0) + (3 * (1.0f - t) * (1.0f - t) * t * p1) + (3 * (1.0f - t) * t * t * p2) * (t * t * t * p3);
+        return glm::translate(glm::identity<glm::mat4>(), posBezier);
+    }*/
+
+    // Either directly render the image, or pass through to extra.h methods
+    if (features.extra.enableDepthOfField) {
+        renderImageWithDepthOfField(scene, bvh, features, camera, screen);
+    } else if (features.extra.enableMotionBlur) {
+        renderImageWithMotionBlur(scene, bvh, features, camera, screen);
+    } else {
+        #ifdef NDEBUG // Enable multi threading in Release mode
+        #pragma omp parallel for schedule(guided)
+        #endif
+        for (int y = 0; y < screen.resolution().y; y++) {
+            for (int x = 0; x != screen.resolution().x; x++) {
+                // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+                // Note; we seed the sampler for consistenct behavior across frames
+                RenderState state = {
+                    .scene = scene,
+                    .features = features,
+                    .bvh = bvh,
+                    .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+                };
+                auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+                auto L = renderRays(state, rays);
+                screen.setPixel(x, y, L);
+            }
+        }
     }
 
 }
