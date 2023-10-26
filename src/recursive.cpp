@@ -99,7 +99,10 @@ Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
 {
     // Calculate the intersection of ray and surface
     glm::vec3 intersection = ray.origin + ray.t * ray.direction;
-    Ray passthrough { intersection, ray.direction };
+    Ray passthrough {
+        .origin = intersection + ray.direction * 1.0e-6f,
+        .direction = ray.direction 
+    };
 
     // Draw debug ray
     drawRay(passthrough, glm::vec3 { 0,0,1 });
@@ -136,6 +139,6 @@ void renderRaySpecularComponent(RenderState& state, Ray ray, const HitInfo& hitI
 void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
     Ray passthrough = generatePassthroughRay(ray, hitInfo);
-    hitColor += (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency);
+    hitColor += (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency) + (hitColor * (1.0f - hitInfo.material.transparency));
     drawRay(passthrough, hitColor);
 }
