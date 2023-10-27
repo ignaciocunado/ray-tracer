@@ -36,25 +36,8 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
 
      int samples = features.extra.motionBlurSamples;
-    /*static glm::mat4 spliceMat(float t)
-    {
-        if (t >= 1) {
-            t = 0;
-        }
-        glm::vec3 p0 { 0, 0, 0 };
-        glm::vec3 p1 { 0, 5, 0 };
-        glm::vec3 p2 { 5, 5, 0 };
-        glm::vec3 p3 { 5, 0, 0 };
-        glm::vec3 posBezier = ((1.0f - t) * (1.0f - t) * (1.0f - t) * p0) + (3 * (1.0f - t) * (1.0f - t) * t * p1) + (3 * (1.0f - t) * t * t * p2) * (t * t * t * p3);
-        return glm::translate(glm::identity<glm::mat4>(), posBezier);
-    }*/
+     std::vector<float> timeSamples;
 
-    // Either directly render the image, or pass through to extra.h methods
-    if (features.extra.enableDepthOfField) {
-        renderImageWithDepthOfField(scene, bvh, features, camera, screen);
-    } else if (features.extra.enableMotionBlur) {
-        renderImageWithMotionBlur(scene, bvh, features, camera, screen);
-    } else {
         #ifdef NDEBUG // Enable multi threading in Release mode
         #pragma omp parallel for schedule(guided)
         #endif
@@ -68,13 +51,25 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                     .bvh = bvh,
                     .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
                 };
-                auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
-                auto L = renderRays(state, rays);
+
+                for (int i = 0; i < samples; i++) {
+                    timeSamples.push_back(state.sampler.next_1d());
+                }
+
+                std::sort(timeSamples.begin(), timeSamples.end());
+
+                glm::vec3 L;
+                for (int i = 0; i < samples; i++) {
+                    float time = timeSamples[i];
+                    glm::mat4 transform = spliceMat(time);
+                    auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+                    L += renderRays(state, rays);
+                }
+
+                L = L / (float) samples;
                 screen.setPixel(x, y, L);
             }
         }
-    }
-
 }
 
 // TODO; Extra feature
@@ -141,4 +136,17 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     using Primitive = BVH::Primitive;
 
     return 0; // This is clearly not the solution
+}
+
+glm::mat4 spliceMat(float t)
+{
+    if (t >= 1) {
+        t = 0;
+    }
+    glm::vec3 p0 { 0, 0, 0 };
+    glm::vec3 p1 { 0, 5, 0 };
+    glm::vec3 p2 { 5, 5, 0 };
+    glm::vec3 p3 { 5, 0, 0 };
+    glm::vec3 posBezier = ((1.0f - t) * (1.0f - t) * (1.0f - t) * p0) + (3 * (1.0f - t) * (1.0f - t) * t * p1) + (3 * (1.0f - t) * t * t * p2) * (t * t * t * p3);
+    return glm::translate(glm::identity<glm::mat4>(), posBezier);
 }
