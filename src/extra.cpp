@@ -35,41 +35,41 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
         return;
     }
 
-     int samples = features.extra.motionBlurSamples;
-     std::vector<float> timeSamples;
+    int samples = features.extra.motionBlurSamples;
 
-        #ifdef NDEBUG // Enable multi threading in Release mode
-        #pragma omp parallel for schedule(guided)
-        #endif
-        for (int y = 0; y < screen.resolution().y; y++) {
-            for (int x = 0; x != screen.resolution().x; x++) {
-                // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
-                // Note; we seed the sampler for consistenct behavior across frames
-                RenderState state = {
-                    .scene = scene,
-                    .features = features,
-                    .bvh = bvh,
-                    .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
-                };
+    #ifdef NDEBUG // Enable multi threading in Release mode
+    #pragma omp parallel for schedule(guided)
+    #endif
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistenct behavior across frames
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
 
-                for (int i = 0; i < samples; i++) {
-                    timeSamples.push_back(state.sampler.next_1d());
+            glm::vec3 L;
+            for (int i = 0; i < samples; i++) {
+                float time = state.sampler.next_1d();
+                glm::mat4 transform = spliceMat(time);
+                for (int j = 0; j < scene.spheres.size(); j++) {
+                    Sphere change = scene.spheres[j];
+                    glm::vec3 center = change.center;
+                    glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
+                    glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
+                    change.center = newCenter3;
                 }
-
-                std::sort(timeSamples.begin(), timeSamples.end());
-
-                glm::vec3 L;
-                for (int i = 0; i < samples; i++) {
-                    float time = timeSamples[i];
-                    glm::mat4 transform = spliceMat(time);
-                    auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
-                    L += renderRays(state, rays);
-                }
-
-                L = L / (float) samples;
-                screen.setPixel(x, y, L);
+                auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
+                L += renderRays(state, rays);
             }
+
+            L = L / (float) samples;
+            screen.setPixel(x, y, L);
         }
+    }
 }
 
 // TODO; Extra feature

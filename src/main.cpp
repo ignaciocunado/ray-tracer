@@ -197,6 +197,7 @@ int main(int argc, char** argv)
                 if (config.features.extra.enableMotionBlur) {
                     ImGui::Indent();
                     // Add motion blur settings here, if necessary
+                    ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 300);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Glossy reflections", &config.features.extra.enableGlossyReflection);
@@ -208,7 +209,6 @@ int main(int argc, char** argv)
                 }
                 ImGui::Checkbox("Environment maps", &config.features.extra.enableEnvironmentMap);
                 ImGui::Checkbox("Texture filtering (mipmap)", &config.features.extra.enableMipmapTextureFiltering);
-                ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 50);
             }
 
             if (ImGui::TreeNode("Camera(read only)")) {
