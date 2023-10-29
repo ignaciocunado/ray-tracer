@@ -24,6 +24,7 @@ enum SceneType {
     Dragon,
     Spheres,
     Custom,
+    MotionBlur
 };
 
 struct Scene {

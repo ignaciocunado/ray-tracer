@@ -106,6 +106,14 @@ Scene loadScenePrebuilt(SceneType type, const std::filesystem::path& dataDir)
         // Spherical light: position, radius, color
         // scene.lights.push_back(SphericalLight{ glm::vec3(0, 1.5f, 0), 0.2f, glm::vec3(1) });
     } break;
+    case MotionBlur: {
+        scene.spheres.push_back(Sphere { glm::vec3(0.0f, 0.0f, 0.0f), 1.0f, Material { glm::vec3(0.8f, 0.2f, 0.2f) } });
+        scene.spheres.push_back(Sphere { glm::vec3(3.0f, 0.0f, 0.0f), 1.0f, Material { glm::vec3(0.6f, 0.8f, 0.2f) } });
+        scene.spheres.push_back(Sphere { glm::vec3(6.0f, 0.0f, 0.0f), 1.0f, Material { glm::vec3(0.2f, 0.2f, 0.8f) } });
+        scene.lights.emplace_back(PointLight { glm::vec3(0.0f, 5.0f, 0.0f), glm::vec3(100) });
+        scene.lights.emplace_back(PointLight { glm::vec3(3.0f, 5.0f, 0.0f), glm::vec3(100) });
+        scene.lights.emplace_back(PointLight { glm::vec3(6.0f, 5.0f, 0.0f), glm::vec3(100) });
+    } break;
     };
 
     return scene;

@@ -121,6 +121,7 @@ int main(int argc, char** argv)
                     "Dragon",
                     /* "AABBs",*/ "Spheres", /*"Mixed",*/
                     "Custom",
+                    "MotionBlur"
                 };
                 if (ImGui::Combo("Scenes", reinterpret_cast<int*>(&sceneType), items.data(), int(items.size()))) {
                     debugRays.clear();
