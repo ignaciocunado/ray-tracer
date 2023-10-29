@@ -161,18 +161,21 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     return 0; // This is clearly not the solution
 }
 
+// This method calculates the position of a point along a 4th degree bezier curve at time T
 glm::mat4 spliceMat(float t, glm::vec3 currentCenter)
 {
-    glm::vec3 p0 = glm::vec3 { 0, 0, 0 } + currentCenter;
-    glm::vec3 p1 = glm::vec3 { 0, 15, 0 } + currentCenter;
-    glm::vec3 p2 = glm::vec3 { 15, 15, 0 } + currentCenter;
-    glm::vec3 p3 = glm::vec3 { 15, 0, 0 } + currentCenter;
+    glm::vec3 p0 = glm::vec3(0, 0, 0) + currentCenter;
+    glm::vec3 p1 = glm::vec3(0, 5, 2) + currentCenter;
+    glm::vec3 p2 = glm::vec3(5, 5, -2) + currentCenter;
+    glm::vec3 p3 = glm::vec3(5, 0, 0) + currentCenter;
+    glm::vec3 p4 = glm::vec3(2.5, 10, 4) + currentCenter;
 
     float oneMinusT = 1.0f - t;
     float oneMinusTSquared = oneMinusT * oneMinusT;
     float tSquared = t * t;
+    float tCubed = tSquared * t;
 
-    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * p0) + (3.0f * oneMinusTSquared * t * p1) + (3.0f * oneMinusT * tSquared * p2) + (tSquared * t * p3);
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
 
     return glm::translate(glm::mat4(1.0f), posBezier);
 }
