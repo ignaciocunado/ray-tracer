@@ -198,7 +198,7 @@ int main(int argc, char** argv)
                 if (config.features.extra.enableMotionBlur) {
                     ImGui::Indent();
                     // Add motion blur settings here, if necessary
-                    ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 300);
+                    ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 2000);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Glossy reflections", &config.features.extra.enableGlossyReflection);

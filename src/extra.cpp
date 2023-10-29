@@ -50,22 +50,45 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                 .bvh = bvh,
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
-
+            
             glm::vec3 L;
             for (int i = 0; i < samples; i++) {
                 float time = state.sampler.next_1d();
-                glm::mat4 transform = spliceMat(time);
+                std::vector<Sphere> newSpheres;
+
                 for (int j = 0; j < scene.spheres.size(); j++) {
                     Sphere change = scene.spheres[j];
                     glm::vec3 center = change.center;
+                    glm::mat4 transform = spliceMat(time, center);
                     glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
                     glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
-                    change.center = newCenter3;
+                    Sphere newSphere = {
+                        .center = newCenter3,
+                        .radius = change.radius,
+                        .material = change.material
+                    };
+                    newSpheres.push_back(newSphere);
                 }
-                auto rays = generatePixelRays(state, camera, { x, y }, screen.resolution());
-                L += renderRays(state, rays);
-            }
 
+                Scene newScene
+                {
+                    .type = scene.type,
+                    .meshes = scene.meshes,
+                    .spheres = newSpheres,
+                    .lights = scene.lights
+
+                };
+                BVH bvh = BVH(newScene, features);
+                RenderState newState = {
+                    .scene = newScene,
+                    .features = state.features,
+                    .bvh = bvh,
+                    .sampler = state.sampler
+                };
+
+                auto rays = generatePixelRays(newState, camera, { x, y }, screen.resolution());
+                L += renderRays(newState, rays);
+            }
             L = L / (float) samples;
             screen.setPixel(x, y, L);
         }
@@ -138,15 +161,18 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     return 0; // This is clearly not the solution
 }
 
-glm::mat4 spliceMat(float t)
+glm::mat4 spliceMat(float t, glm::vec3 currentCenter)
 {
-    if (t >= 1) {
-        t = 0;
-    }
-    glm::vec3 p0 { 0, 0, 0 };
-    glm::vec3 p1 { 0, 5, 0 };
-    glm::vec3 p2 { 5, 5, 0 };
-    glm::vec3 p3 { 5, 0, 0 };
-    glm::vec3 posBezier = ((1.0f - t) * (1.0f - t) * (1.0f - t) * p0) + (3 * (1.0f - t) * (1.0f - t) * t * p1) + (3 * (1.0f - t) * t * t * p2) * (t * t * t * p3);
-    return glm::translate(glm::identity<glm::mat4>(), posBezier);
+    glm::vec3 p0 = glm::vec3 { 0, 0, 0 } + currentCenter;
+    glm::vec3 p1 = glm::vec3 { 0, 15, 0 } + currentCenter;
+    glm::vec3 p2 = glm::vec3 { 15, 15, 0 } + currentCenter;
+    glm::vec3 p3 = glm::vec3 { 15, 0, 0 } + currentCenter;
+
+    float oneMinusT = 1.0f - t;
+    float oneMinusTSquared = oneMinusT * oneMinusT;
+    float tSquared = t * t;
+
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * p0) + (3.0f * oneMinusTSquared * t * p1) + (3.0f * oneMinusT * tSquared * p2) + (tSquared * t * p3);
+
+    return glm::translate(glm::mat4(1.0f), posBezier);
 }

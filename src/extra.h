@@ -55,4 +55,4 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray);
 // NOTE: this method is unit-tested, so do not change the function signature.
 size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives);
 
-glm::mat4 spliceMat(float t);
+glm::mat4 spliceMat(float t, glm::vec3 currentCenter);
