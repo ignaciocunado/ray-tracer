@@ -54,8 +54,8 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
             glm::vec3 L;
             for (int i = 0; i < samples; i++) {
                 float time = state.sampler.next_1d();
-                std::vector<Sphere> newSpheres;
 
+                std::vector<Sphere> newSpheres;
                 for (int j = 0; j < scene.spheres.size(); j++) {
                     Sphere change = scene.spheres[j];
                     glm::vec3 center = change.center;
@@ -70,10 +70,36 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                     newSpheres.push_back(newSphere);
                 }
 
+                std::vector<Mesh> newMeshes;
+                for (int j = 0; j < scene.meshes.size(); j++) {
+                    Mesh change = scene.meshes[j];
+                    std::vector<Vertex> vertices = change.vertices;
+                    std::vector<Vertex> newVertices = change.vertices;
+                    for (int k = 0; k < vertices.size(); k++) {
+                        Vertex v = vertices[k];
+                        glm::vec3 pos = v.position;
+                        glm::mat4 transform = spliceMat(time, pos);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glm::vec3 newPos3 = { newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3] };
+                        Vertex newVertex = {
+                            .position = newPos3,
+                            .normal = v.normal,
+                            .texCoord = v.texCoord
+                        };
+                        newVertices.push_back(newVertex);
+                    }
+                    Mesh newMesh = {
+                        .vertices = newVertices,
+                        .triangles = change.triangles,
+                        .material = change.material
+                    };
+                    newMeshes.push_back(newMesh);
+                }
+
                 Scene newScene
                 {
                     .type = scene.type,
-                    .meshes = scene.meshes,
+                    .meshes = newMeshes,
                     .spheres = newSpheres,
                     .lights = scene.lights
 
