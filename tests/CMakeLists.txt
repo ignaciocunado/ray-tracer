@@ -4,6 +4,7 @@ add_executable(FinalProjectTests
         "interpolation_tests.cpp"
         "texture_tests.cpp"
         "light_tests.cpp"
+        "depth_of_field_tests.cpp"
 )
 
 target_compile_features(FinalProjectTests PRIVATE cxx_std_20)
