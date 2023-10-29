@@ -34,6 +34,9 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
 // This method is unit-tested, so do not change the function signature.
 void sampleSegmentLight(const float& sample, const SegmentLight& segmentLight, glm::vec3& position, glm::vec3& color);
 
+// Given parallelogram edges e1 and e2, and a 2d sample in [0, 1), compute the corresponding barycentric coordinates.
+glm::vec4 calculateBarycentricCoordinates(const glm::vec3& e1, const glm::vec3& e2, const glm::vec2& sample);
+
 // TODO: Standard feature
 // Given a single paralellogram light, transform a uniformly distributed 2d sample in [0, 1),
 // into a uniformly sampled position and color on the paralellogram light, and write these into the reference return values.
