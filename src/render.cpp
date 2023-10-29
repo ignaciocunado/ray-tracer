@@ -30,7 +30,7 @@ void renderImage(const Scene& scene, const BVHInterface& bvh, const Features& fe
         for (int y = 0; y < screen.resolution().y; y++) {
             for (int x = 0; x != screen.resolution().x; x++) {
                 // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
-                // Note; we seed the sampler for consistenct behavior across frames
+                // Note; we seed the sampler for consistent behavior across frames
                 RenderState state = {
                     .scene = scene,
                     .features = features,

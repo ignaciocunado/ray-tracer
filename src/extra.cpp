@@ -5,6 +5,54 @@
 #include "shading.h"
 #include <framework/trackball.h>
 
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
+glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance) {
+    const float cosAngle = glm::dot(cameraRay.direction, camera.forward()); // cosine of the angle between these two vectors
+
+    // The following line is get due to: cosAngle = focalDistance / curDistance
+    const float curDistance = focalDistance / cosAngle; // distance for the cameraRay to reach focal plane
+
+    return cameraRay.origin + curDistance * cameraRay.direction;
+}
+
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates rays for specified pixel (x, y) and renders.
+void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
+{
+    float focalDistance = state.features.extra.depthOfFieldDistance;
+    float squareLength = state.features.extra.depthOfFieldSquareLength;
+    uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
+
+    // Generate rays from camera for this pixel (x, y). (Similarly to renderImage(...))
+    std::vector<Ray> generatedRays = generatePixelRays(state, camera, pixel, screen.resolution());
+
+    std::vector<Ray> finalRays;
+    finalRays.reserve(numOfSamples * generatedRays.size());
+
+    // For each of the generated camera ray new rays will be created for the Depth of field effect.
+    for (const Ray& cameraRay : generatedRays) {
+        const glm::vec3 pointOfFocus = getPointOfFocus(camera, cameraRay, focalDistance);
+
+        // Generate many new rays.
+        for (uint32_t i = 0; i < numOfSamples; i++) {
+            // Generate new ray with origin slightly moved, but the direction still
+            // directed towards point of focus.
+
+            const glm::vec2 randomOffset = (state.sampler.next_2d() - 0.5f) * squareLength;
+            // randomOffset is added to the camera plane which is orthogonal to camera.forward().
+            // The orthogonal basis (two orthogonal unit vectors) can be easily retrieved by taking camera.up() and camera.left().
+            const glm::vec3 newOrigin = cameraRay.origin + randomOffset[0] * camera.up() + randomOffset[1] * camera.left();
+            const glm::vec3 newDirection = glm::normalize(pointOfFocus - newOrigin);
+
+            finalRays.push_back(Ray { .origin = newOrigin, .direction = newDirection, .t = cameraRay.t });
+        }
+    }
+
+    auto L = renderRays(state, finalRays);
+    screen.setPixel(pixel.x, pixel.y, L);
+}
+
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of Depth of Field. Here, you generate camera rays s.t. a focus point and a thin lens camera model
@@ -17,7 +65,22 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
         return;
     }
 
-    // ...
+#ifdef NDEBUG // Enable multi threading in Release mode
+#pragma omp parallel for schedule(guided)
+#endif
+    // Loop through each pixel.
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+
+            renderImagePixelWithDepthOfField(state, camera, screen, {x, y});
+        }
+    }
 }
 
 // TODO; Extra feature
