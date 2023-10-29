@@ -24,9 +24,27 @@ DISABLE_WARNINGS_POP()
 // This method is unit-tested, so do not change the function signature.
 void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec3& position, glm::vec3& color)
 {
-    // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    glm::vec3 p0 = light.endpoint0;
+    glm::vec3 p1 = light.endpoint1;
+
+    glm::vec3 c0 = light.color0;
+    glm::vec3 c1 = light.color1;
+
+    position = glm::mix(p0, p1, sample);
+    color = glm::mix(c0, c1, sample);
+}
+
+glm::vec4 calculateBarycentricCoordinates(const glm::vec3& e1, const glm::vec3& e2, const glm::vec2& sample) {
+    float x = sample.x, y = sample.y;
+
+    float area0 = glm::length(glm::cross(e1 * x, e2 * y));
+    float area1 = glm::length(glm::cross(e1 * (1 - x), e2 * y));
+    float area2 = glm::length(glm::cross(e1 * x, e2 * (1 - y)));
+    float area3 = glm::length(glm::cross(e1 * (1 - x), e2 * (1 - y)));
+
+    float totalArea = area0 + area1 + area2 + area3;
+
+    return glm::vec4(area0 / totalArea, area1 / totalArea, area2 / totalArea, area3 / totalArea);
 }
 
 // TODO: Standard feature
@@ -40,9 +58,18 @@ void sampleSegmentLight(const float& sample, const SegmentLight& light, glm::vec
 // This method is unit-tested, so do not change the function signature.
 void sampleParallelogramLight(const glm::vec2& sample, const ParallelogramLight& light, glm::vec3& position, glm::vec3& color)
 {
-    // TODO: implement this function.
-    position = glm::vec3(0.0);
-    color = glm::vec3(0.0);
+    glm::vec3 p0 = light.v0;
+    glm::vec3 p1 = light.v0 + light.edge01;
+    glm::vec3 p2 = light.v0 + light.edge02;
+    position = p0 + sample.x * light.edge01 + sample.y * light.edge02;
+
+    glm::vec3 c0 = light.color0;
+    glm::vec3 c1 = light.color1;
+    glm::vec3 c2 = light.color2;
+    glm::vec3 c3 = light.color3;
+
+    glm::vec4 barycentricCoordinates = calculateBarycentricCoordinates(light.edge01, light.edge02, sample);
+    color = barycentricCoordinates.w * c0 + barycentricCoordinates.z * c1 + barycentricCoordinates.y * c2 + barycentricCoordinates.x * c3;
 }
 
 // TODO: Standard feature
@@ -62,8 +89,20 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
         // Shadows are disabled in the renderer
         return true;
     } else {
-        // Shadows are enabled in the renderer
-        // TODO: implement this function; currently, the light simply passes through
+        // Create a ray from the light position to the hit point
+        glm::vec3 hitPoint = ray.origin + ray.t * ray.direction;
+        glm::vec3 shadowRayDirection = glm::normalize(hitPoint - lightPosition);
+        float shadowRayLength = glm::length(hitPoint - lightPosition);
+        Ray shadowRay = {lightPosition, shadowRayDirection, shadowRayLength};
+        HitInfo shadowHitInfo;
+
+        // Use the BVH intersect function to check for occlusions
+        if (state.bvh.intersect(state, shadowRay, shadowHitInfo)) {
+            // Check if the shadow ray hit an object before the light source
+            return abs(shadowRay.t - shadowRayLength) <= 0.0001f;
+        }
+
+        // The shadow ray didn't hit any objects, so the light is visible
         return true;
     }
 }
@@ -85,8 +124,11 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
-    // TODO: implement this function; currently, the light simply passes through
-    return lightColor;
+    if (visibilityOfLightSampleBinary(state, lightPosition, lightColor, ray, hitInfo)) {
+        return lightColor * hitInfo.material.kd * (1 - hitInfo.material.transparency);
+    } else {
+        return glm::vec3(0);
+    }
 }
 
 // TODO: Standard feature
@@ -104,11 +146,19 @@ glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& light, const Ray& ray, const HitInfo& hitInfo)
 {
-    // TODO: modify this function to incorporate visibility corerctly
+    glm::vec3 visibleColor = visibilityOfLightSample(state, light.position, light.color, ray, hitInfo);
+
+    // If the light is not visible, return black
+    if (visibleColor == glm::vec3(0)) {
+        return glm::vec3(0);
+    }
+
     glm::vec3 p = ray.origin + ray.t * ray.direction;
     glm::vec3 l = glm::normalize(light.position - p);
     glm::vec3 v = -ray.direction;
-    return computeShading(state, v, l, light.color, hitInfo);
+
+    // Compute the shading for the point light using the visible color
+    return computeShading(state, v, l, visibleColor, hitInfo);
 }
 
 // TODO: Standard feature
@@ -131,10 +181,17 @@ glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& li
 glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight& light, const Ray& ray, const HitInfo& hitInfo, uint32_t numSamples)
 {
     // TODO: implement this function; repeat numSamples times:
-    // - sample the segment light
-    // - test the sample's visibility
-    // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 Lo { 0.0f };
+
+    for (uint32_t i = 0; i < numSamples; i++) {
+        // - sample the segment light
+        glm::vec3 position, color;
+        sampleSegmentLight(state.sampler.next_1d(), light, position, color);
+
+        Lo += computeContributionPointLight(state, PointLight {position, color}, ray, hitInfo);
+    }
+
+    return Lo * (1.0f / (float)numSamples);
 }
 
 // TODO: Standard feature
@@ -158,10 +215,17 @@ glm::vec3 computeContributionSegmentLight(RenderState& state, const SegmentLight
 glm::vec3 computeContributionParallelogramLight(RenderState& state, const ParallelogramLight& light, const Ray& ray, const HitInfo& hitInfo, uint32_t numSamples)
 {
     // TODO: implement this function; repeat numSamples times:
-    // - sample the parallellogram light
-    // - test the sample's visibility
-    // - then evaluate the phong model
-    return glm::vec3(0);
+    glm::vec3 Lo { 0.0f };
+
+    for (uint32_t i = 0; i < numSamples; i++) {
+        // - sample the parallelogram light
+        glm::vec3 position, color;
+        sampleParallelogramLight(state.sampler.next_2d(), light, position, color);
+
+        Lo += computeContributionPointLight(state, PointLight {position, color}, ray, hitInfo);
+    }
+
+    return Lo * (1.0f / (float)numSamples);
 }
 
 // This function is provided as-is. You do not have to implement it.
@@ -205,5 +269,6 @@ glm::vec3 computeLightContribution(RenderState& state, const Ray& ray, const Hit
             Lo += computeContributionParallelogramLight(state, std::get<ParallelogramLight>(light), ray, hitInfo, state.features.numShadowSamples);
         }
     }
-    return Lo;
+
+    return glm::clamp(Lo, 0.0f, 1.0f);
 }
