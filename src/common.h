@@ -67,7 +67,7 @@ struct ExtraFeatures {
     bool enableGlossyReflection = false;
     bool enableMipmapTextureFiltering = false;
     bool enableMotionBlur = false;
-    int motionBlurSamples;
+    int motionBlurSamples = 0;
 
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
