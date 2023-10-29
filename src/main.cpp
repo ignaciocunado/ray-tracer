@@ -183,8 +183,9 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("BVH SAH binning", &config.features.extra.enableBvhSahBinning);
                 ImGui::Checkbox("Bloom effect", &config.features.extra.enableBloomEffect);
                 if (config.features.extra.enableBloomEffect) {
+                    uint32_t minSamples = 1u, maxSamples = 16u;
                     ImGui::Indent();
-                    // Add bloom settings here, if necessary
+                    ImGui::SliderScalar("Filter size", ImGuiDataType_U32, &config.features.extra.bloomFilterSize, &minSamples, &maxSamples);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
