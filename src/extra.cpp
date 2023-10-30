@@ -74,7 +74,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                 for (int j = 0; j < scene.meshes.size(); j++) {
                     Mesh change = scene.meshes[j];
                     std::vector<Vertex> vertices = change.vertices;
-                    std::vector<Vertex> newVertices = change.vertices;
+                    std::vector<Vertex> newVertices;
                     for (int k = 0; k < vertices.size(); k++) {
                         Vertex v = vertices[k];
                         glm::vec3 pos = v.position;
