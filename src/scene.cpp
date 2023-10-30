@@ -110,9 +110,9 @@ Scene loadScenePrebuilt(SceneType type, const std::filesystem::path& dataDir)
         scene.spheres.push_back(Sphere { glm::vec3(0.0f, 0.0f, 0.0f), 0.5f, Material { glm::vec3(0.8f, 0.2f, 0.2f) } });
         scene.spheres.push_back(Sphere { glm::vec3(3.0f, 0.0f, 0.0f), 0.5f, Material { glm::vec3(0.6f, 0.8f, 0.2f) } });
         scene.spheres.push_back(Sphere { glm::vec3(6.0f, 0.0f, 0.0f), 0.5f, Material { glm::vec3(0.2f, 0.2f, 0.8f) } });
-        scene.lights.emplace_back(PointLight { glm::vec3(0.0f, 5.0f, 0.0f), glm::vec3(10) });
-        scene.lights.emplace_back(PointLight { glm::vec3(3.0f, 5.0f, 0.0f), glm::vec3(10) });
-        scene.lights.emplace_back(PointLight { glm::vec3(6.0f, 5.0f, 0.0f), glm::vec3(10) });
+        scene.lights.emplace_back(PointLight { glm::vec3(0.0f, 15.0f, 0.0f), glm::vec3(5) });
+        scene.lights.emplace_back(PointLight { glm::vec3(3.0f, 15.0f, 0.0f), glm::vec3(5) });
+        scene.lights.emplace_back(PointLight { glm::vec3(6.0f, 15.0f, 0.0f), glm::vec3(5) });
     } break;
     };
 
