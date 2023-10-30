@@ -36,6 +36,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
 
     int samples = features.extra.motionBlurSamples;
+    float movement = features.extra.movement;
 
     #ifdef NDEBUG // Enable multi threading in Release mode
     #pragma omp parallel for schedule(guided)
@@ -59,7 +60,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                 for (int j = 0; j < scene.spheres.size(); j++) {
                     Sphere change = scene.spheres[j];
                     glm::vec3 center = change.center;
-                    glm::mat4 transform = spliceMat(time, center);
+                    glm::mat4 transform = spliceMat(time, center, movement);
                     glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
                     glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
                     Sphere newSphere = {
@@ -78,7 +79,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                     for (int k = 0; k < vertices.size(); k++) {
                         Vertex v = vertices[k];
                         glm::vec3 pos = v.position;
-                        glm::mat4 transform = spliceMat(time, pos);
+                        glm::mat4 transform = spliceMat(time, pos, movement);
                         glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
                         glm::vec3 newPos3 = { newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3] };
                         Vertex newVertex = {
@@ -188,13 +189,13 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 }
 
 // This method calculates the position of a point along a 4th degree bezier curve at time T
-glm::mat4 spliceMat(float t, glm::vec3 currentCenter)
+glm::mat4 spliceMat(float t, glm::vec3 currentCenter, float movement)
 {
-    glm::vec3 p0 = glm::vec3(0, 0, 0) + currentCenter;
-    glm::vec3 p1 = glm::vec3(0, 2, 2) + currentCenter;
-    glm::vec3 p2 = glm::vec3(2, 2, -2) + currentCenter;
-    glm::vec3 p3 = glm::vec3(2, 0, 0) + currentCenter;
-    glm::vec3 p4 = glm::vec3(2.5, 2, 4) + currentCenter;
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement) + currentCenter;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement) + currentCenter;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) * movement) + currentCenter;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) * movement) + currentCenter;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) * movement) + currentCenter;
 
     float oneMinusT = 1.0f - t;
     float oneMinusTSquared = oneMinusT * oneMinusT;

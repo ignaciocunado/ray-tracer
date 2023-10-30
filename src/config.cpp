@@ -62,10 +62,6 @@ static std::ostream& operator<<(std::ostream& os, const SceneType& sceneType)
         os << "SceneType::Custom";
         break;
     }
-    case SceneType::MotionBlur: {
-        os << "SceneType::MotionBlur";
-        break;
-    }
     }
     return os;
 }

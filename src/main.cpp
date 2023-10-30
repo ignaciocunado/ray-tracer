@@ -120,8 +120,7 @@ int main(int argc, char** argv)
                     "Teapot",
                     "Dragon",
                     /* "AABBs",*/ "Spheres", /*"Mixed",*/
-                    "Custom",
-                    "MotionBlur"
+                    "Custom"
                 };
                 if (ImGui::Combo("Scenes", reinterpret_cast<int*>(&sceneType), items.data(), int(items.size()))) {
                     debugRays.clear();
@@ -199,6 +198,7 @@ int main(int argc, char** argv)
                     ImGui::Indent();
                     // Add motion blur settings here, if necessary
                     ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 3000);
+                    ImGui::SliderFloat("Movement", &config.features.extra.movement, 0, 3);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Glossy reflections", &config.features.extra.enableGlossyReflection);
