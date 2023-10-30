@@ -45,7 +45,7 @@ static void setOpenGLMatrices(const Trackball& camera);
 static void drawLightsOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 static void drawSceneOpenGL(const Scene& scene);
 bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max);
-glm::mat4 spliceMat(float t, float movement);
+glm::mat4 splineMat(float t, float movement);
 
 int main(int argc, char** argv)
 {
@@ -422,8 +422,8 @@ int main(int argc, char** argv)
                     glPopAttrib();
                 }
                 if (debugMotionBlur) {
-                    glm::mat4 splice = spliceMat(timeDebugMotionBlur, sizeDebugMotionBlur);
-                    glMultMatrixf(glm::value_ptr(splice));
+                    glm::mat4 spline = splineMat(timeDebugMotionBlur, sizeDebugMotionBlur);
+                    glMultMatrixf(glm::value_ptr(spline));
                     drawSceneOpenGL(scene);
                 }
             } break;
@@ -629,7 +629,7 @@ bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max)
 
 
 // Same method as in extra.cpp for Motion Blur visual debug
-glm::mat4 spliceMat(float t, float movement)
+glm::mat4 splineMat(float t, float movement)
 {
     glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement);
     glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement);
