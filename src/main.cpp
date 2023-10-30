@@ -45,6 +45,7 @@ static void setOpenGLMatrices(const Trackball& camera);
 static void drawLightsOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 static void drawSceneOpenGL(const Scene& scene);
 bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max);
+glm::mat4 spliceMat(float t, float movement);
 
 int main(int argc, char** argv)
 {
@@ -74,8 +75,12 @@ int main(int argc, char** argv)
 
         int bvhDebugLevel = 0;
         int bvhDebugLeaf = 0;
+        float timeDebugMotionBlur = 0.0f;
+        float sizeDebugMotionBlur = 0.0f;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+        bool debugMotionBlur { false };
+
         ViewMode viewMode { ViewMode::Rasterization };
 
         window.registerKeyCallback([&](int key, int /* scancode */, int action, int /* mods */) {
@@ -256,6 +261,11 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Draw BVH Leaf", &debugBVHLeaf);
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
+                ImGui::Checkbox("Motion Blur", &debugMotionBlur);
+                if (debugMotionBlur) {
+                    ImGui::SliderFloat("Time", &timeDebugMotionBlur, 0, 1);
+                    ImGui::SliderFloat("Size", &sizeDebugMotionBlur, 0, 3);
+                }
             }
 
             ImGui::Spacing();
@@ -410,6 +420,11 @@ int main(int argc, char** argv)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
                     enableDebugDraw = false;
                     glPopAttrib();
+                }
+                if (debugMotionBlur) {
+                    glm::mat4 splice = spliceMat(timeDebugMotionBlur, sizeDebugMotionBlur);
+                    glMultMatrixf(glm::value_ptr(splice));
+                    drawSceneOpenGL(scene);
                 }
             } break;
             case ViewMode::RayTracing: {
@@ -610,4 +625,24 @@ bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max)
     const float v_rounded = std::round(std::sqrt(float(*v)));
     *v = static_cast<int>(v_rounded * v_rounded);
     return ImGui::SliderInt(label, v, v_min, v_max);
+}
+
+
+// Same method as in extra.cpp for Motion Blur visual debug
+glm::mat4 spliceMat(float t, float movement)
+{
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement);
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement);
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) * movement);
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) * movement);
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) * movement);
+
+    float oneMinusT = 1.0f - t;
+    float oneMinusTSquared = oneMinusT * oneMinusT;
+    float tSquared = t * t;
+    float tCubed = tSquared * t;
+
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
+
+    return glm::translate(glm::mat4(1.0f), posBezier);
 }
