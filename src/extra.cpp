@@ -191,10 +191,10 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 glm::mat4 spliceMat(float t, glm::vec3 currentCenter)
 {
     glm::vec3 p0 = glm::vec3(0, 0, 0) + currentCenter;
-    glm::vec3 p1 = glm::vec3(0, 5, 2) + currentCenter;
-    glm::vec3 p2 = glm::vec3(5, 5, -2) + currentCenter;
-    glm::vec3 p3 = glm::vec3(5, 0, 0) + currentCenter;
-    glm::vec3 p4 = glm::vec3(2.5, 10, 4) + currentCenter;
+    glm::vec3 p1 = glm::vec3(0, 2, 2) + currentCenter;
+    glm::vec3 p2 = glm::vec3(2, 2, -2) + currentCenter;
+    glm::vec3 p3 = glm::vec3(2, 0, 0) + currentCenter;
+    glm::vec3 p4 = glm::vec3(2.5, 2, 4) + currentCenter;
 
     float oneMinusT = 1.0f - t;
     float oneMinusTSquared = oneMinusT * oneMinusT;
