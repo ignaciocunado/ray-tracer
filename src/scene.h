@@ -36,6 +36,16 @@ struct Scene {
 
     // You can add your own objects (e.g. environment maps) here
     // ...
+    
+    // Textures for environment maps. Environment map is a cube, made out of 6 faces (6 images).
+    // They should be ordered in the following way:
+    // 0 - positive x direction
+    // 1 - negative x direction
+    // 2 - positive y direction
+    // 3 - negative y direction
+    // 4 - positive z direction
+    // 5 - negative z direction
+    std::shared_ptr<Image> environmentMapTextures[6];
 };
 
 // Load a prebuilt scene.

@@ -108,6 +108,13 @@ Scene loadScenePrebuilt(SceneType type, const std::filesystem::path& dataDir)
     } break;
     };
 
+    // Put environment map textures (cube faces).
+    // Sky texture taken from: https://tools.wwwtyro.net/space-3d/index.html.
+    for (int id = 0; id < 6; id++) {
+        std::string textureFileName = "sky-" + std::to_string(id) + ".png";
+        scene.environmentMapTextures[id] = std::make_shared<Image>(dataDir / "environment-map-textures" / textureFileName);
+    }
+
     return scene;
 }
 

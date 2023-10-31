@@ -3,6 +3,7 @@
 #include "light.h"
 #include "recursive.h"
 #include "shading.h"
+#include "texture.h"
 #include <framework/trackball.h>
 
 // Helper method for renderImageWithDepthOfField(...).
@@ -205,11 +206,84 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
 // not go on a hunting expedition for your implementation, so please keep it here!
 glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 {
-    if (state.features.extra.enableEnvironmentMap) {
-        // Part of your implementation should go here
-        return glm::vec3(0.f);
+    if (!state.features.extra.enableEnvironmentMap) {
+        return glm::vec3(0.0f); // Black color.
+    }
+
+    // Index of the face (image) of the cube (of environment map textures). Not yet known.
+    // Indices meaning (order) is listed in scene.h file.
+    int chosenImageId = 0;
+    // Texture coordinates. Not yet known.
+    float u = 0.0f;
+    float v = 0.0f; 
+
+    // Calculate which side of the cube the ray is facing.
+    const float x = ray.direction.x;
+    const float y = ray.direction.y;
+    const float z = ray.direction.z;
+    const float absX = abs(x);
+    const float absY = abs(y);
+    const float absZ = abs(z);
+
+    // The side of the cube can be figured out by checking which coordinate has biggest value, and checking its sign.
+    if (absX >= absY && absX >= absZ) {
+        // X is biggest, so either positive or negative X.
+        if (x > 0.0f) {
+            // Facing positive x direction.
+            chosenImageId = 0;
+            u = z;
+            v = y;
+        } else {
+            // Facing negative x direction.
+            chosenImageId = 1;
+            u = -z;
+            v = y;
+        }
+    } else if (absY >= absZ) {
+        // Y is biggest, so either positive or negative Y.
+        if (y > 0.0f) {
+            // Facing positive y direction.
+            chosenImageId = 2;
+            u = -x;
+            v = -z;
+        } else {
+            // Facing negative y direction.
+            chosenImageId = 3;
+            u = -x;
+            v = z;
+        }
     } else {
-        return glm::vec3(0.f);
+        // Z is biggest, so either positive or negative Z.
+        if (z > 0.0f) {
+            // Facing positive z direction.
+            chosenImageId = 4;
+            u = -x;
+            v = y;
+        } else {
+            // Facing negative z direction.
+            chosenImageId = 5;
+            u = x;
+            v = y;
+        }
+    }
+
+    // Check if texture is present.
+    if (!state.scene.environmentMapTextures[chosenImageId]) {
+        return glm::vec3(0.0f); // Black color.
+    }
+
+    // Normalize (u, v) coordinates to be between [0; 1]x[0; 1].
+    const float biggestAbsCoord = std::max(absX, std::max(absY, absZ));
+    u = (u / biggestAbsCoord + 1.0f) * 0.5f;
+    v = (v / biggestAbsCoord + 1.0f) * 0.5f;
+
+    const Image& chosenImage = *(state.scene.environmentMapTextures[chosenImageId]);
+    const glm::vec2 texCoords(u, v);
+
+    if (state.features.enableBilinearTextureFiltering) {
+        return sampleTextureBilinear(chosenImage, texCoords);
+    } else {
+        return sampleTextureNearest(chosenImage, texCoords);
     }
 }
 
