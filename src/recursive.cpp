@@ -76,7 +76,7 @@ Ray generateReflectionRay(Ray ray, HitInfo hitInfo)
     glm::vec3 reflected = glm::normalize(glm::normalize(ray.direction) - 2.0f * glm::dot(glm::normalize(ray.direction), hitInfo.normal) * hitInfo.normal);
     Ray reflectedRay
     {
-        .origin = intersection + hitInfo.normal * 1.0e-6f,
+        .origin = intersection + hitInfo.normal * 1.0e-5f,
         .direction = reflected,
         .t = std::numeric_limits<float>::max()
     };
@@ -100,7 +100,7 @@ Ray generatePassthroughRay(Ray ray, HitInfo hitInfo)
     // Calculate the intersection of ray and surface
     glm::vec3 intersection = ray.origin + ray.t * ray.direction;
     Ray passthrough {
-        .origin = intersection + ray.direction * 1.0e-6f,
+        .origin = intersection + ray.direction * 1.0e-5f,
         .direction = ray.direction 
     };
 
@@ -139,6 +139,6 @@ void renderRaySpecularComponent(RenderState& state, Ray ray, const HitInfo& hitI
 void renderRayTransparentComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
     Ray passthrough = generatePassthroughRay(ray, hitInfo);
-    hitColor += (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency) + (hitColor * (1.0f - hitInfo.material.transparency));
+    hitColor = (renderRay(state, passthrough, rayDepth + 1) * hitInfo.material.transparency) + (hitColor * (1.0f - hitInfo.material.transparency));
     drawRay(passthrough, hitColor);
 }

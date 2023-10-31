@@ -183,14 +183,19 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("BVH SAH binning", &config.features.extra.enableBvhSahBinning);
                 ImGui::Checkbox("Bloom effect", &config.features.extra.enableBloomEffect);
                 if (config.features.extra.enableBloomEffect) {
+                    uint32_t minSamples = 1u, maxSamples = 16u;
                     ImGui::Indent();
-                    // Add bloom settings here, if necessary
+                    ImGui::SliderScalar("Filter size", ImGuiDataType_U32, &config.features.extra.bloomFilterSize, &minSamples, &maxSamples);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
                 if (config.features.extra.enableDepthOfField) {
                     ImGui::Indent();
-                    // Add DOF settings here, if necessary
+                    ImGui::SliderFloat("Distance", &config.features.extra.depthOfFieldDistance, 0.01f, 10.0f);
+                    ImGui::SliderFloat("Square Length", &config.features.extra.depthOfFieldSquareLength, 0.01f, 0.5f);
+                    
+                    uint32_t minSamples = 1u, maxSamples = 64u;
+                    ImGui::SliderScalar("Num of DOF samples", ImGuiDataType_U32, &config.features.extra.numDepthOfFieldSamples, &minSamples, &maxSamples);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Motion blur", &config.features.extra.enableMotionBlur);
