@@ -71,6 +71,9 @@ struct ExtraFeatures {
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
 
+    // Parameters for bloom effect
+    uint32_t bloomFilterSize = 3;
+
     // Parameters for Depth of Field
     float depthOfFieldDistance = 1.0f;
     float depthOfFieldSquareLength = 0.1f;
