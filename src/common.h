@@ -61,7 +61,7 @@ struct ParallelogramLight {
 
 struct ExtraFeatures {
     bool enableBvhSahBinning = false;
-    bool enableBloomEffect = false;
+    bool enableBloomEffect = true;
     bool enableDepthOfField = false;
     bool enableEnvironmentMap = false;
     bool enableGlossyReflection = false;
@@ -73,6 +73,7 @@ struct ExtraFeatures {
 
     // Parameters for bloom effect
     uint32_t bloomFilterSize = 3;
+    float bloomThreshold = 0.5f;
 
     // Parameters for Depth of Field
     float depthOfFieldDistance = 1.0f;
@@ -82,18 +83,18 @@ struct ExtraFeatures {
 
 struct Features {
     // Feature toggles
-    bool enableShading = false;
-    bool enableReflections = false;
-    bool enableShadows = false;
-    bool enableNormalInterp = false;
+    bool enableShading = true;
+    bool enableReflections = true;
+    bool enableShadows = true;
+    bool enableNormalInterp = true;
     bool enableTextureMapping = false;
-    bool enableAccelStructure = false;
+    bool enableAccelStructure = true;
     bool enableBilinearTextureFiltering = false;
-    bool enableTransparency = false;
+    bool enableTransparency = true;
     bool enableJitteredSampling = false;
 
     // Feature-specific settings
-    ShadingModel shadingModel = ShadingModel::Lambertian;
+    ShadingModel shadingModel = ShadingModel::BlinnPhong;
     uint32_t numPixelSamples = 1;
     uint32_t numShadowSamples = 4;
 

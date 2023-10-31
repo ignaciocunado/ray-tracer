@@ -186,6 +186,7 @@ int main(int argc, char** argv)
                     uint32_t minSamples = 1u, maxSamples = 16u;
                     ImGui::Indent();
                     ImGui::SliderScalar("Filter size", ImGuiDataType_U32, &config.features.extra.bloomFilterSize, &minSamples, &maxSamples);
+                    ImGui::SliderFloat("Threshold", &config.features.extra.bloomThreshold, 0.0f, 1.0f);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
