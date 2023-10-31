@@ -6,6 +6,7 @@
 #include "render.h"
 #include "scene.h"
 #include "shading.h"
+#include "recursive.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -124,11 +125,29 @@ bool visibilityOfLightSampleBinary(RenderState& state, const glm::vec3& lightPos
 // This method is unit-tested, so do not change the function signature.
 glm::vec3 visibilityOfLightSampleTransparency(RenderState& state, const glm::vec3& lightPosition, const glm::vec3& lightColor, const Ray& ray, const HitInfo& hitInfo)
 {
-    if (visibilityOfLightSampleBinary(state, lightPosition, lightColor, ray, hitInfo)) {
-        return lightColor * hitInfo.material.kd * (1 - hitInfo.material.transparency);
-    } else {
-        return glm::vec3(0);
+    glm::vec3 hitPoint = ray.origin + ray.t * ray.direction;
+    glm::vec3 shadowRayDirection = glm::normalize(hitPoint - lightPosition);
+    float shadowRayLength = glm::length(hitPoint - lightPosition);
+    Ray shadowRay = {lightPosition, shadowRayDirection, shadowRayLength};
+    HitInfo shadowHitInfo;
+    glm::vec3 finalColor {0.0f};
+    float transparency = 1.0f;
+    Material currentMaterial = hitInfo.material;
+
+    // Check if the shadow ray hit an object before the hitPoint
+    while (state.bvh.intersect(state, shadowRay, shadowHitInfo) && !glm::all(glm::epsilonEqual(shadowRay.origin + shadowRay.t * shadowRay.direction, hitPoint, 0.0001f)) && shadowHitInfo.material.transparency != 1.0f) {
+        // Ray hit a transparent object, generate a pass-through ray and save the current material
+        currentMaterial = shadowHitInfo.material;
+        transparency *= currentMaterial.transparency;
+        shadowRay = generatePassthroughRay(shadowRay, shadowHitInfo);
     }
+
+    // Check if the ray reached the object
+    if (glm::all(glm::epsilonEqual(shadowRay.origin + shadowRay.t * shadowRay.direction, hitPoint, 0.0001f))) {
+        finalColor = lightColor * currentMaterial.kd * transparency;
+    }
+
+    return finalColor;
 }
 
 // TODO: Standard feature
@@ -156,9 +175,14 @@ glm::vec3 computeContributionPointLight(RenderState& state, const PointLight& li
     glm::vec3 p = ray.origin + ray.t * ray.direction;
     glm::vec3 l = glm::normalize(light.position - p);
     glm::vec3 v = -ray.direction;
+    HitInfo lightHitInfo = hitInfo;
+
+    if (state.features.enableTransparency && hitInfo.material.transparency < 1.0f && glm::dot(hitInfo.normal, l) < 0.0f) {
+        lightHitInfo.normal = -hitInfo.normal;
+    }
 
     // Compute the shading for the point light using the visible color
-    return computeShading(state, v, l, visibleColor, hitInfo);
+    return computeShading(state, v, l, visibleColor, lightHitInfo);
 }
 
 // TODO: Standard feature
