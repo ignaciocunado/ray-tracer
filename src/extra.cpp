@@ -128,10 +128,10 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
 {
     // Calculate the horizontal values
     for (int y = 0; y < k; y++) {
-        long double total = 0;
+        float total = 0;
 
         for (int x = 0; x < k; x++) {
-            float val = float(factorial(k) / (factorial(x) * factorial(k - x)));
+            auto val = float(factorial(k) / (factorial(x) * factorial(k - x)));
             total += val;
             filter[x][y] = val;
         }
@@ -143,10 +143,10 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
 
     // Calculate the vertical values
     for (int x = 0; x < k; x++) {
-        long long total = 0;
+        float total = 0;
 
         for (int y = 0; y < k; y++) {
-            int val = int(factorial(k) / (factorial(y) * factorial(k - y)));
+            auto val = float(factorial(k) / (factorial(y) * factorial(k - y)));
             total += val;
             filter[x][y] = val;
         }
