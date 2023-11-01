@@ -192,8 +192,40 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
     // Generate an initial specular ray, and base secondary glossies on this ray
-    // auto numSamples = state.features.extra.numGlossySamples;
-    // ...
+    glm::vec3 intersection = ray.origin + ray.direction * ray.t;
+    Ray initialSpecularRay = generateReflectionRay(ray, hitInfo);
+
+    // Construct the orthonormal basis for the specular ray
+    glm::vec3 arbitraryVector = glm::vec3(1, 0, 0);
+    if (glm::length(arbitraryVector - initialSpecularRay.direction) < 0.01f) {
+        arbitraryVector = glm::vec3(0, 1, 0);
+    }
+
+    glm::vec3 u = glm::normalize(glm::cross(arbitraryVector, initialSpecularRay.direction));
+    glm::vec3 v = glm::normalize(glm::cross(initialSpecularRay.direction, u));
+
+    int numSamples = (int)state.features.extra.numGlossySamples;
+    float diskRadius = state.features.extra.glossyExponent * hitInfo.material.shininess / 64;
+
+    for (int i = 0; i < numSamples; i++) {
+        // Generate a sampled point on the disk
+        glm::vec2 samples = state.sampler.next_2d();
+        diskRadius *= samples.x;
+        float theta = glm::radians(360.f) * samples.y;
+
+        // Get the sampled coordinates
+        u *= diskRadius * cos(theta);
+        v *= diskRadius * sin(theta);
+
+        glm::vec3 sampledDirection = glm::normalize(initialSpecularRay.direction + u + v);
+
+        // Generate a ray and render it
+        Ray glossyRay = Ray { .origin = intersection + hitInfo.normal * 1.0e-5f, .direction = sampledDirection, .t = std::numeric_limits<float>::max() };
+        glm::vec3 glossyColor = renderRay(state, glossyRay, rayDepth + 1);
+
+        // Add the color to the hitColor
+        hitColor += glossyColor * hitInfo.material.ks;
+    }
 }
 
 // TODO; Extra feature

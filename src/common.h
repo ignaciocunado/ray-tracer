@@ -70,6 +70,7 @@ struct ExtraFeatures {
 
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
+    float glossyExponent = 0.5f;
 
     // Parameters for bloom effect
     uint32_t bloomFilterSize = 3;
