@@ -76,7 +76,7 @@ struct ExtraFeatures {
 
     // Parameters for Depth of Field
     float depthOfFieldDistance = 1.0f;
-    float depthOfFieldSquareLength = 0.1f;
+    float depthOfFieldCircleDiameter = 0.1f;
     uint32_t numDepthOfFieldSamples = 5;
 };
 
