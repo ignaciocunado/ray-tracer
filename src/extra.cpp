@@ -348,7 +348,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     const size_t numBins = 5;
 
     // Initialize the bins
-    std::vector<std::vector<Primitive>> bins(numBins);
+    std::vector<std::vector<Primitive>> bins(numBins + 1);
     float binSize = (aabb.upper[(int)axis] - aabb.lower[(int)axis]) / numBins;
 
     // Add the primitives to the bins
