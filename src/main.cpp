@@ -424,18 +424,20 @@ int main(int argc, char** argv)
                 if (debugMotionBlur) {
                     glm::mat4 spline = splineMat(timeDebugMotionBlur, glm::vec3 { 0 }, sizeDebugMotionBlur);
                     
-                    glPushMatrix();
                     glBegin(GL_LINES);
                     for (float t = 0; t < 1.0f; t += 0.01f) {
                         glm::vec3 pos {0};
                         glm::mat4 transform = splineMat(t, glm::vec3 { 0 }, sizeDebugMotionBlur);
                         glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
                         glColor3f(1, 0, 1);
-                        glVertex3f(- newPos[0] / newPos[3], newPos[1] / newPos[3], - newPos[2] / newPos[3]);
+                        glVertex3f(newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3]);
                     }
+                    
                     glEnd();
+                    glMatrixMode(GL_MODELVIEW);
+                    glPushMatrix();
                     glMultMatrixf(glm::value_ptr(spline));
-                    drawSceneOpenGL(scene);
+                    drawScene(scene);
                     glPopMatrix();
                 }
             } break;
