@@ -56,6 +56,49 @@ void drawExampleOfCustomVisualDebug()
     glEnd();
 }
 
+void drawFocalPlane(const std::vector<glm::vec3>& cornersOfPlane, float transparency)
+{
+    // Draw a transparent focal plane.
+    // Alpha blending settings copied from drawing BVH levels/leaves in main.cpp.
+    glPushAttrib(GL_ALL_ATTRIB_BITS);
+    glDisable(GL_LIGHTING);
+    glEnable(GL_DEPTH_TEST);
+
+    // Enable alpha blending. More info at:
+    // https://learnopengl.com/Advanced-OpenGL/Blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glColor4f(1.0f, 1.0f, 0.5f, transparency);
+
+    glBegin(GL_QUADS);
+    for (int i = 0; i < cornersOfPlane.size(); i++) {
+        glVertex3fv(glm::value_ptr(cornersOfPlane[i]));
+    }
+    glEnd();
+
+    glPopAttrib();
+}
+
+void drawDisk(const glm::vec3& origin, const glm::vec3& u, const glm::vec3& v, const float radius) {
+    // Disk is made of many triangles.
+    const int numTriangles = 100;
+    constexpr float angleIteration = glm::two_pi<float>() / ((float)numTriangles);
+
+    glBegin(GL_TRIANGLE_FAN);
+    glColor3f(0.75f, 0.75f, 0.25f);
+
+    glVertex3fv(glm::value_ptr(origin));
+    for (int i = 0; i <= numTriangles; i++) {
+        const float angle = angleIteration * ((float)(i + 1));
+        const glm::vec2 offset(std::cos(angle) * radius, std::sin(angle) * radius);
+        const glm::vec3 currentPoint = origin + offset[0] * u + offset[1] * v;
+        glVertex3fv(glm::value_ptr(currentPoint));
+    }
+
+    glEnd();
+
+}
 
 void drawTriangle (const Vertex& v0, const Vertex& v1, const Vertex& v2 ) {
     glBegin(GL_TRIANGLES);
