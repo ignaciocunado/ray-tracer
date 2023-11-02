@@ -191,11 +191,11 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 // This method calculates the position of a point along a 4th degree bezier curve at time T
 glm::mat4 splineMat(float t, glm::vec3 currentCenter, float movement)
 {
-    glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement) + currentCenter;
-    glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement) + currentCenter;
-    glm::vec3 p2 = (glm::vec3(1, 1, -1) * movement) + currentCenter;
-    glm::vec3 p3 = (glm::vec3(1, 0, 0) * movement) + currentCenter;
-    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) * movement) + currentCenter;
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) + currentCenter) * movement;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) + currentCenter) * movement;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) + currentCenter) * movement;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;
 
     float oneMinusT = 1.0f - t;
     float oneMinusTSquared = oneMinusT * oneMinusT;
