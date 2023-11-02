@@ -191,6 +191,7 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 // not go on a hunting expedition for your implementation, so please keep it here!
 void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
+    glm::vec3 glossyColor = glm::vec3 {0.f};
     // Generate an initial specular ray, and base secondary glossies on this ray
     glm::vec3 intersection = ray.origin + ray.direction * ray.t;
     Ray initialSpecularRay = generateReflectionRay(ray, hitInfo);
@@ -210,22 +211,22 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
     for (int i = 0; i < numSamples; i++) {
         // Generate a sampled point on the disk
         glm::vec2 samples = state.sampler.next_2d();
-        diskRadius *= samples.x;
-        float theta = glm::radians(360.f) * samples.y;
+        float sampledDiskRadius = diskRadius * samples.x;
+        float theta = glm::two_pi<float>() * samples.y;
 
         // Get the sampled coordinates
-        u *= diskRadius * cos(theta);
-        v *= diskRadius * sin(theta);
+        glm::vec3 sampledU = u * sampledDiskRadius * cos(theta);
+        glm::vec3 sampledV = v*  sampledDiskRadius * sin(theta);
 
-        glm::vec3 sampledDirection = glm::normalize(initialSpecularRay.direction + u + v);
+        glm::vec3 sampledDirection = glm::normalize(initialSpecularRay.direction + sampledU + sampledV);
 
         // Generate a ray and render it
-        Ray glossyRay = Ray { .origin = intersection + hitInfo.normal * 1.0e-5f, .direction = sampledDirection, .t = std::numeric_limits<float>::max() };
-        glm::vec3 glossyColor = renderRay(state, glossyRay, rayDepth + 1);
-
-        // Add the color to the hitColor
-        hitColor += glossyColor * hitInfo.material.ks;
+        Ray glossyRay = Ray { .origin = intersection + sampledDirection * 1.0e-5f, .direction = sampledDirection, .t = std::numeric_limits<float>::max() };
+        glossyColor += renderRay(state, glossyRay, rayDepth + 1);
     }
+
+    // Add the color to the hitColor
+    hitColor += (glossyColor / float(numSamples)) * hitInfo.material.ks;
 }
 
 // TODO; Extra feature
