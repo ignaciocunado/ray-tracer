@@ -438,7 +438,8 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     if (features.extra.enableBvhSahBinning) {
         // TODO: this will be implemented in Extra features.
-        // here, the primitives should be split into two subranges based on sah-binning
+        uint32_t longestAxis = computeAABBLongestAxis(aabb);
+        splitPosition = splitPrimitivesBySAHBin(aabb, longestAxis, primitives);
     } else {
         // Sort and split by median along the longest axis.
         uint32_t longestAxis = computeAABBLongestAxis(aabb);

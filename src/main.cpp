@@ -213,7 +213,16 @@ int main(int argc, char** argv)
             }
 
             if (ImGui::CollapsingHeader("Extra Features")) {
-                ImGui::Checkbox("BVH SAH binning", &config.features.extra.enableBvhSahBinning);
+                if(ImGui::Checkbox("BVH SAH binning", &config.features.extra.enableBvhSahBinning)) {
+                    scene = loadScenePrebuilt(sceneType, config.dataPath);
+                    bvh = BVH(scene, config.features);
+                }
+                if (config.features.extra.enableBvhSahBinning) {
+                    uint32_t minBins = 2u, maxBins = 20u;
+                    ImGui::Indent();
+                    ImGui::SliderScalar("Number of bins", ImGuiDataType_U32, &config.features.extra.numBins, &minBins, &maxBins);
+                    ImGui::Unindent();
+                }
                 ImGui::Checkbox("Bloom effect", &config.features.extra.enableBloomEffect);
                 if (config.features.extra.enableBloomEffect) {
                     uint32_t minSamples = 1u, maxSamples = 16u;

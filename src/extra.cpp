@@ -309,6 +309,30 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
     }
 }
 
+AxisAlignedBox mergeAABBs(const AxisAlignedBox& aabb1, const AxisAlignedBox& aabb2)
+{
+    AxisAlignedBox mergedAABB;
+
+    mergedAABB.lower.x = std::min(aabb1.lower.x, aabb2.lower.x);
+    mergedAABB.lower.y = std::min(aabb1.lower.y, aabb2.lower.y);
+    mergedAABB.lower.z = std::min(aabb1.lower.z, aabb2.lower.z);
+
+    mergedAABB.upper.x = std::max(aabb1.upper.x, aabb2.upper.x);
+    mergedAABB.upper.y = std::max(aabb1.upper.y, aabb2.upper.y);
+    mergedAABB.upper.z = std::max(aabb1.upper.z, aabb2.upper.z);
+
+    return mergedAABB;
+}
+
+float computeSurfaceArea(const AxisAlignedBox& aabb)
+{
+    const float x = aabb.upper.x - aabb.lower.x;
+    const float y = aabb.upper.y - aabb.lower.y;
+    const float z = aabb.upper.z - aabb.lower.z;
+
+    return 2 * (x * y + x * z + y * z);
+}
+
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to
 // the `Data Structures` lecture for details on this metric.
@@ -317,9 +341,54 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 // - primitives; the modifiable range of triangles that requires splitting
 // - return;     the split position of the modified range of triangles
 // This method is unit-tested, so do not change the function signature.
-size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
+size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives)
 {
-    using Primitive = BVH::Primitive;
+    using Primitive = BVHInterface::Primitive;
 
-    return 0; // This is clearly not the solution
+    const size_t numBins = 5;
+
+    // Initialize the bins
+    std::vector<std::vector<Primitive>> bins(numBins);
+    float binSize = (aabb.upper[(int)axis] - aabb.lower[(int)axis]) / numBins;
+
+    // Add the primitives to the bins
+    for (const Primitive& primitive : primitives) {
+        // Calculate the bin index
+        size_t binIndex = static_cast<size_t>(floor((computePrimitiveCentroid(primitive)[(int)axis] - aabb.lower[(int)axis]) / binSize));
+        // Add the primitive to the bin
+        bins[binIndex].push_back(primitive);
+    }
+
+    // Sort the primitives
+    size_t index = 0;
+    for (auto& bin : bins) {
+        for (Primitive& primitive : bin) {
+            primitives[index++] = primitive;
+        }
+    }
+
+    std::vector<float> costs(primitives.size() - 2);
+
+    auto leftAABB = computeSpanAABB(primitives.subspan(0, 1));
+    for (size_t i = 1; i < primitives.size() - 1; i++) {
+        float leftArea = computeSurfaceArea(leftAABB);
+        costs[i - 1] = (float)i * leftArea;
+        leftAABB = mergeAABBs(leftAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    auto rightAABB = computeSpanAABB(primitives.subspan(primitives.size() - 1, 1));
+    for (size_t i = primitives.size() - 2; i > 0; i--) {
+        float rightArea = computeSurfaceArea(rightAABB);
+        costs[i - 1] += (float)(primitives.size() - i) * rightArea;
+        rightAABB = mergeAABBs(rightAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    size_t optimalSplit = 0;
+    for (size_t i = 0; i < costs.size(); i++) {
+        if (costs[i] < costs[optimalSplit]) {
+            optimalSplit = i;
+        }
+    }
+
+    return optimalSplit + 1;
 }
