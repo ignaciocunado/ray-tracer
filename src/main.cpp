@@ -6,6 +6,7 @@
 #include "sampler.h"
 #include "recursive.h"
 #include "screen.h"
+#include "extra.h"
 // Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -45,7 +46,6 @@ static void setOpenGLMatrices(const Trackball& camera);
 static void drawLightsOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 static void drawSceneOpenGL(const Scene& scene);
 bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max);
-glm::mat4 splineMat(float t, float movement);
 
 int main(int argc, char** argv)
 {
@@ -422,9 +422,21 @@ int main(int argc, char** argv)
                     glPopAttrib();
                 }
                 if (debugMotionBlur) {
-                    glm::mat4 spline = splineMat(timeDebugMotionBlur, sizeDebugMotionBlur);
+                    glm::mat4 spline = splineMat(timeDebugMotionBlur, glm::vec3 { 0 }, sizeDebugMotionBlur);
+                    
+                    glPushMatrix();
+                    glBegin(GL_LINES);
+                    for (float t = 0; t < 1.0f; t += 0.01f) {
+                        glm::vec3 pos {0};
+                        glm::mat4 transform = splineMat(t, glm::vec3 { 0 }, sizeDebugMotionBlur);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glColor3f(1, 0, 1);
+                        glVertex3f(- newPos[0] / newPos[3], newPos[1] / newPos[3], - newPos[2] / newPos[3]);
+                    }
+                    glEnd();
                     glMultMatrixf(glm::value_ptr(spline));
                     drawSceneOpenGL(scene);
+                    glPopMatrix();
                 }
             } break;
             case ViewMode::RayTracing: {
@@ -625,24 +637,4 @@ bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max)
     const float v_rounded = std::round(std::sqrt(float(*v)));
     *v = static_cast<int>(v_rounded * v_rounded);
     return ImGui::SliderInt(label, v, v_min, v_max);
-}
-
-
-// Same method as in extra.cpp for Motion Blur visual debug
-glm::mat4 splineMat(float t, float movement)
-{
-    glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement);
-    glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement);
-    glm::vec3 p2 = (glm::vec3(1, 1, -1) * movement);
-    glm::vec3 p3 = (glm::vec3(1, 0, 0) * movement);
-    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) * movement);
-
-    float oneMinusT = 1.0f - t;
-    float oneMinusTSquared = oneMinusT * oneMinusT;
-    float tSquared = t * t;
-    float tCubed = tSquared * t;
-
-    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
-
-    return glm::translate(glm::mat4(1.0f), posBezier);
 }
