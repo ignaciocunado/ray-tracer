@@ -193,11 +193,11 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                     .lights = scene.lights
 
                 };
-                BVH bvh = BVH(newScene, features);
+                BVH newBvh = BVH(newScene, features);
                 RenderState newState = {
                     .scene = newScene,
                     .features = state.features,
-                    .bvh = bvh,
+                    .bvh = newBvh,
                     .sampler = state.sampler
                 };
 
@@ -545,18 +545,23 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 // This method calculates the position of a point along a 4th degree bezier curve at time T
 glm::mat4 splineMat(float t, glm::vec3 currentCenter, float movement)
 {
-    glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
+    /*glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
     glm::vec3 p1 = (glm::vec3(0, 1, 1) + currentCenter) * movement;
     glm::vec3 p2 = (glm::vec3(1, 1, -1) + currentCenter) * movement;
     glm::vec3 p3 = (glm::vec3(1, 0, 0) + currentCenter) * movement;
-    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;*/
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) * movement) + currentCenter;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) * movement) + currentCenter;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) * movement) + currentCenter;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) * movement) + currentCenter;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) * movement) + currentCenter;
 
     float oneMinusT = 1.0f - t;
     float oneMinusTSquared = oneMinusT * oneMinusT;
     float tSquared = t * t;
     float tCubed = tSquared * t;
 
-    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusTSquared * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tSquared * p4);
 
     return glm::translate(glm::mat4(1.0f), posBezier);
 }
