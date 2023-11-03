@@ -12,7 +12,6 @@
 #include <framework/opengl_includes.h>
 #include <iostream>
 
-
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
 // to implement separately, see interpolate.h/.cpp for these parts of the project
@@ -80,6 +79,10 @@ BVH::BVH(const Scene& scene, const Features& features)
     // Tell underlying vectors how large they should approximately be
     m_primitives.reserve(numTriangles);
     m_nodes.reserve(numTriangles + 1);
+
+    if (features.extra.enableBvhSahBinning) {
+        debugPlanes = std::vector(numTriangles + 1, std::vector<glm::vec3>(4));
+    }
 
     // Recursively build BVH structure; this is where your implementation comes in
     m_nodes.emplace_back(); // Create root node
@@ -438,7 +441,37 @@ void BVH::buildRecursive(const Scene& scene, const Features& features, std::span
 
     if (features.extra.enableBvhSahBinning) {
         // TODO: this will be implemented in Extra features.
-        // here, the primitives should be split into two subranges based on sah-binning
+        uint32_t longestAxis = computeAABBLongestAxis(aabb);
+        splitPosition = splitPrimitivesBySAHBin(aabb, longestAxis, primitives);
+
+        // Save debug split plane using void drawFocalPlane
+        std::vector<glm::vec3> cornersOfPlane;
+        if (longestAxis == 0) {
+            // Draw split plane along x-axis.
+            cornersOfPlane = {
+                glm::vec3(primitives[splitPosition].v0.position.x, aabb.lower.y, aabb.lower.z),
+                glm::vec3(primitives[splitPosition].v0.position.x, aabb.upper.y, aabb.lower.z),
+                glm::vec3(primitives[splitPosition].v0.position.x, aabb.upper.y, aabb.upper.z),
+                glm::vec3(primitives[splitPosition].v0.position.x, aabb.lower.y, aabb.upper.z)
+            };
+        } else if (longestAxis == 1) {
+            // Draw split plane along y-axis.
+            cornersOfPlane = {
+                glm::vec3(aabb.lower.x, primitives[splitPosition].v0.position.y, aabb.lower.z),
+                glm::vec3(aabb.upper.x, primitives[splitPosition].v0.position.y, aabb.lower.z),
+                glm::vec3(aabb.upper.x, primitives[splitPosition].v0.position.y, aabb.upper.z),
+                glm::vec3(aabb.lower.x, primitives[splitPosition].v0.position.y, aabb.upper.z)
+            };
+        } else {
+            // Draw split plane along z-axis.
+            cornersOfPlane = {
+                glm::vec3(aabb.lower.x, aabb.lower.y, primitives[splitPosition].v0.position.z),
+                glm::vec3(aabb.upper.x, aabb.lower.y, primitives[splitPosition].v0.position.z),
+                glm::vec3(aabb.upper.x, aabb.upper.y, primitives[splitPosition].v0.position.z),
+                glm::vec3(aabb.lower.x, aabb.upper.y, primitives[splitPosition].v0.position.z)
+            };
+        }
+        debugPlanes[nodeIndex] = cornersOfPlane;
     } else {
         // Sort and split by median along the longest axis.
         uint32_t longestAxis = computeAABBLongestAxis(aabb);
@@ -535,6 +568,7 @@ void BVH::debugDrawLevel(int level)
         }
 
         drawAABB(m_nodes[nodeIndex].aabb, DrawMode::Wireframe, color, transparency);
+        drawFocalPlane(debugPlanes[nodeIndex], 0.6f);
     }
 }
 

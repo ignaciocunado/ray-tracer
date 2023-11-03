@@ -1,10 +1,10 @@
 #include "extra.h"
 #include "bvh.h"
+#include "draw.h"
 #include "light.h"
 #include "recursive.h"
 #include "shading.h"
 #include "texture.h"
-#include "draw.h"
 #include <framework/trackball.h>
 #ifdef NDEBUG
 #include <omp.h>
@@ -24,16 +24,17 @@ glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const f
 
 // Helper method for renderImageWithDepthOfField(...).
 // Generates random offset to offset the ray.origin with.
-glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
+glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius)
+{
     // Random offset will be generated within the circle with origin (0, 0) and a radius of circleRadius.
-    
-    // To get that, we need two random values: 
+
+    // To get that, we need two random values:
     // random angle, so that we get random point on circle boundary; and
     // random distance from origin, so that point is randomly inside the circle.
     const glm::vec2 randomValues = sampler.next_2d();
     const float randomAngleInRadians = randomValues[0] * glm::two_pi<float>();
     // Taking a square root to make it more uniformly generated along the circle.
-    const float randomDistance = sqrt(randomValues[1]) * circleRadius; 
+    const float randomDistance = sqrt(randomValues[1]) * circleRadius;
 
     // Calculate coordinates of the point.
     const float x = glm::cos(randomAngleInRadians) * randomDistance;
@@ -41,7 +42,7 @@ glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
 
     return glm::vec2(x, y);
 }
- 
+
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates rays for specified pixel (x, y) and renders.
 std::vector<Ray> generatePixelRaysForDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
@@ -104,7 +105,7 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
 
-            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, {x, y});
+            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, { x, y });
             auto L = renderRays(state, rays);
             screen.setPixel(x, y, L);
         }
@@ -126,9 +127,9 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     int samples = features.extra.motionBlurSamples;
     float movement = features.extra.movement;
 
-    #ifdef NDEBUG // Enable multi threading in Release mode
-    #pragma omp parallel for schedule(guided)
-    #endif
+#ifdef NDEBUG // Enable multi threading in Release mode
+#pragma omp parallel for schedule(guided)
+#endif
     for (int y = 0; y < screen.resolution().y; y++) {
         for (int x = 0; x != screen.resolution().x; x++) {
             // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
@@ -139,7 +140,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                 .bvh = bvh,
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
-            
+
             glm::vec3 L;
             for (int i = 0; i < samples; i++) {
                 float time = state.sampler.next_1d();
@@ -185,8 +186,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                     newMeshes.push_back(newMesh);
                 }
 
-                Scene newScene
-                {
+                Scene newScene {
                     .type = scene.type,
                     .meshes = newMeshes,
                     .spheres = newSpheres,
@@ -204,14 +204,11 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
                 auto rays = generatePixelRays(newState, camera, { x, y }, screen.resolution());
                 L += renderRays(newState, rays);
             }
-            L = L / (float) samples;
+            L = L / (float)samples;
             screen.setPixel(x, y, L);
         }
     }
 }
-
-
-
 
 // Helper function for factorial
 long long factorial(int n)
@@ -437,6 +434,30 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
     }
 }
 
+AxisAlignedBox mergeAABBs(const AxisAlignedBox& aabb1, const AxisAlignedBox& aabb2)
+{
+    AxisAlignedBox mergedAABB;
+
+    mergedAABB.lower.x = std::min(aabb1.lower.x, aabb2.lower.x);
+    mergedAABB.lower.y = std::min(aabb1.lower.y, aabb2.lower.y);
+    mergedAABB.lower.z = std::min(aabb1.lower.z, aabb2.lower.z);
+
+    mergedAABB.upper.x = std::max(aabb1.upper.x, aabb2.upper.x);
+    mergedAABB.upper.y = std::max(aabb1.upper.y, aabb2.upper.y);
+    mergedAABB.upper.z = std::max(aabb1.upper.z, aabb2.upper.z);
+
+    return mergedAABB;
+}
+
+float computeSurfaceArea(const AxisAlignedBox& aabb)
+{
+    const float x = aabb.upper.x - aabb.lower.x;
+    const float y = aabb.upper.y - aabb.lower.y;
+    const float z = aabb.upper.z - aabb.lower.z;
+
+    return 2 * (x * y + x * z + y * z);
+}
+
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to
 // the `Data Structures` lecture for details on this metric.
@@ -449,7 +470,52 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 {
     using Primitive = BVH::Primitive;
 
-    return 0; // This is clearly not the solution
+    const size_t numBins = 10;
+
+    // Initialize the bins
+    std::vector<std::vector<Primitive>> bins(numBins + 1);
+    float binSize = (aabb.upper[(int)axis] - aabb.lower[(int)axis]) / numBins;
+
+    // Add the primitives to the bins
+    for (const Primitive& primitive : primitives) {
+        // Calculate the bin index
+        size_t binIndex = static_cast<size_t>(floor((computePrimitiveCentroid(primitive)[(int)axis] - aabb.lower[(int)axis]) / binSize));
+        // Add the primitive to the bin
+        bins[binIndex].push_back(primitive);
+    }
+
+    // Sort the primitives
+    size_t index = 0;
+    for (auto& bin : bins) {
+        for (Primitive& primitive : bin) {
+            primitives[index++] = primitive;
+        }
+    }
+
+    std::vector<float> costs(primitives.size() - 2);
+
+    auto leftAABB = computeSpanAABB(primitives.subspan(0, 1));
+    for (size_t i = 1; i < primitives.size() - 1; i++) {
+        float leftArea = computeSurfaceArea(leftAABB);
+        costs[i - 1] = (float)i * leftArea;
+        leftAABB = mergeAABBs(leftAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    auto rightAABB = computeSpanAABB(primitives.subspan(primitives.size() - 1, 1));
+    for (size_t i = primitives.size() - 2; i > 0; i--) {
+        float rightArea = computeSurfaceArea(rightAABB);
+        costs[i - 1] += (float)(primitives.size() - i) * rightArea;
+        rightAABB = mergeAABBs(rightAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    size_t optimalSplit = 0;
+    for (size_t i = 0; i < costs.size(); i++) {
+        if (costs[i] < costs[optimalSplit]) {
+            optimalSplit = i;
+        }
+    }
+
+    return optimalSplit + 1;
 }
 
 // This method calculates the position of a point along a 4th degree bezier curve at time T
