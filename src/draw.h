@@ -29,3 +29,6 @@ void drawSphere(const Sphere& sphere);
 void drawSphere(const glm::vec3& center, float radius, const glm::vec3& color = glm::vec3(1.0f));
 void drawScene(const Scene& scene);
 
+// Debug planes for SAH debugging
+extern std::vector<std::vector<glm::vec3>> debugPlanes;
+

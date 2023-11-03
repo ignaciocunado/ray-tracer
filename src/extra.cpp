@@ -1,14 +1,19 @@
 #include "extra.h"
 #include "bvh.h"
+#include "draw.h"
 #include "light.h"
 #include "recursive.h"
 #include "shading.h"
 #include "texture.h"
 #include <framework/trackball.h>
+#ifdef NDEBUG
+#include <omp.h>
+#endif
 
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
-glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance) {
+glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance)
+{
     const float cosAngle = glm::dot(cameraRay.direction, camera.forward()); // cosine of the angle between these two vectors
 
     // The following line is get due to: cosAngle = focalDistance / curDistance
@@ -19,16 +24,17 @@ glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const f
 
 // Helper method for renderImageWithDepthOfField(...).
 // Generates random offset to offset the ray.origin with.
-glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
+glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius)
+{
     // Random offset will be generated within the circle with origin (0, 0) and a radius of circleRadius.
-    
-    // To get that, we need two random values: 
+
+    // To get that, we need two random values:
     // random angle, so that we get random point on circle boundary; and
     // random distance from origin, so that point is randomly inside the circle.
     const glm::vec2 randomValues = sampler.next_2d();
     const float randomAngleInRadians = randomValues[0] * glm::two_pi<float>();
     // Taking a square root to make it more uniformly generated along the circle.
-    const float randomDistance = sqrt(randomValues[1]) * circleRadius; 
+    const float randomDistance = sqrt(randomValues[1]) * circleRadius;
 
     // Calculate coordinates of the point.
     const float x = glm::cos(randomAngleInRadians) * randomDistance;
@@ -36,7 +42,7 @@ glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
 
     return glm::vec2(x, y);
 }
- 
+
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates rays for specified pixel (x, y) and renders.
 std::vector<Ray> generatePixelRaysForDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
@@ -99,7 +105,7 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
 
-            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, {x, y});
+            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, { x, y });
             auto L = renderRays(state, rays);
             screen.setPixel(x, y, L);
         }
@@ -116,6 +122,91 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
 {
     if (!features.extra.enableMotionBlur) {
         return;
+    }
+
+    int samples = features.extra.motionBlurSamples;
+    float movement = features.extra.movement;
+
+#ifdef NDEBUG // Enable multi threading in Release mode
+#pragma omp parallel for schedule(guided)
+#endif
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistenct behavior across frames
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+
+            glm::vec3 L;
+            for (int i = 0; i < samples; i++) {
+                float time = state.sampler.next_1d();
+
+                std::vector<Sphere> newSpheres;
+                for (int j = 0; j < scene.spheres.size(); j++) {
+                    Sphere change = scene.spheres[j];
+                    glm::vec3 center = change.center;
+                    glm::mat4 transform = splineMat(time, center, movement);
+                    glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
+                    glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
+                    Sphere newSphere = {
+                        .center = newCenter3,
+                        .radius = change.radius,
+                        .material = change.material
+                    };
+                    newSpheres.push_back(newSphere);
+                }
+
+                std::vector<Mesh> newMeshes;
+                for (int j = 0; j < scene.meshes.size(); j++) {
+                    Mesh change = scene.meshes[j];
+                    std::vector<Vertex> vertices = change.vertices;
+                    std::vector<Vertex> newVertices;
+                    for (int k = 0; k < vertices.size(); k++) {
+                        Vertex v = vertices[k];
+                        glm::vec3 pos = v.position;
+                        glm::mat4 transform = splineMat(time, pos, movement);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glm::vec3 newPos3 = { newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3] };
+                        Vertex newVertex = {
+                            .position = newPos3,
+                            .normal = v.normal,
+                            .texCoord = v.texCoord
+                        };
+                        newVertices.push_back(newVertex);
+                    }
+                    Mesh newMesh = {
+                        .vertices = newVertices,
+                        .triangles = change.triangles,
+                        .material = change.material
+                    };
+                    newMeshes.push_back(newMesh);
+                }
+
+                Scene newScene {
+                    .type = scene.type,
+                    .meshes = newMeshes,
+                    .spheres = newSpheres,
+                    .lights = scene.lights
+
+                };
+                BVH bvh = BVH(newScene, features);
+                RenderState newState = {
+                    .scene = newScene,
+                    .features = state.features,
+                    .bvh = bvh,
+                    .sampler = state.sampler
+                };
+
+                auto rays = generatePixelRays(newState, camera, { x, y }, screen.resolution());
+                L += renderRays(newState, rays);
+            }
+            L = L / (float)samples;
+            screen.setPixel(x, y, L);
+        }
     }
 }
 
@@ -178,7 +269,6 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
         }
     }
 }
-
 // TODO; Extra feature
 // Given a rendered image, compute and apply a bloom post-processing effect to increase bright areas.
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
@@ -238,9 +328,43 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 // not go on a hunting expedition for your implementation, so please keep it here!
 void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
+    glm::vec3 glossyColor = glm::vec3 { 0.f };
     // Generate an initial specular ray, and base secondary glossies on this ray
-    // auto numSamples = state.features.extra.numGlossySamples;
-    // ...
+    glm::vec3 intersection = ray.origin + ray.direction * ray.t;
+    Ray initialSpecularRay = generateReflectionRay(ray, hitInfo);
+
+    // Construct the orthonormal basis for the specular ray
+    glm::vec3 arbitraryVector = glm::vec3(1, 0, 0);
+    if (glm::length(arbitraryVector - initialSpecularRay.direction) < 0.01f) {
+        arbitraryVector = glm::vec3(0, 1, 0);
+    }
+
+    glm::vec3 u = glm::normalize(glm::cross(arbitraryVector, initialSpecularRay.direction));
+    glm::vec3 v = glm::normalize(glm::cross(initialSpecularRay.direction, u));
+
+    int numSamples = (int)state.features.extra.numGlossySamples;
+    float diskRadius = state.features.extra.glossyExponent * hitInfo.material.shininess / 64;
+
+    for (int i = 0; i < numSamples; i++) {
+        // Generate a sampled point on the disk
+        glm::vec2 samples = state.sampler.next_2d();
+        float sampledDiskRadius = diskRadius * samples.x;
+        float theta = glm::two_pi<float>() * samples.y;
+
+        // Get the sampled coordinates
+        glm::vec3 sampledU = u * sampledDiskRadius * cos(theta);
+        glm::vec3 sampledV = v * sampledDiskRadius * sin(theta);
+
+        glm::vec3 sampledDirection = glm::normalize(initialSpecularRay.direction + sampledU + sampledV);
+
+        // Generate a ray and render it
+        Ray glossyRay = Ray { .origin = intersection + sampledDirection * 1.0e-5f, .direction = sampledDirection, .t = std::numeric_limits<float>::max() };
+        drawRay(glossyRay, glm::vec3 { 0, 1, 1 });
+        glossyColor += renderRay(state, glossyRay, rayDepth + 1);
+    }
+
+    // Add the color to the hitColor
+    hitColor += (glossyColor / float(numSamples)) * hitInfo.material.ks;
 }
 
 // TODO; Extra feature
@@ -334,6 +458,30 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
     }
 }
 
+AxisAlignedBox mergeAABBs(const AxisAlignedBox& aabb1, const AxisAlignedBox& aabb2)
+{
+    AxisAlignedBox mergedAABB;
+
+    mergedAABB.lower.x = std::min(aabb1.lower.x, aabb2.lower.x);
+    mergedAABB.lower.y = std::min(aabb1.lower.y, aabb2.lower.y);
+    mergedAABB.lower.z = std::min(aabb1.lower.z, aabb2.lower.z);
+
+    mergedAABB.upper.x = std::max(aabb1.upper.x, aabb2.upper.x);
+    mergedAABB.upper.y = std::max(aabb1.upper.y, aabb2.upper.y);
+    mergedAABB.upper.z = std::max(aabb1.upper.z, aabb2.upper.z);
+
+    return mergedAABB;
+}
+
+float computeSurfaceArea(const AxisAlignedBox& aabb)
+{
+    const float x = aabb.upper.x - aabb.lower.x;
+    const float y = aabb.upper.y - aabb.lower.y;
+    const float z = aabb.upper.z - aabb.lower.z;
+
+    return 2 * (x * y + x * z + y * z);
+}
+
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to
 // the `Data Structures` lecture for details on this metric.
@@ -346,5 +494,69 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 {
     using Primitive = BVH::Primitive;
 
-    return 0; // This is clearly not the solution
+    const size_t numBins = 10;
+
+    // Initialize the bins
+    std::vector<std::vector<Primitive>> bins(numBins + 1);
+    float binSize = (aabb.upper[(int)axis] - aabb.lower[(int)axis]) / numBins;
+
+    // Add the primitives to the bins
+    for (const Primitive& primitive : primitives) {
+        // Calculate the bin index
+        size_t binIndex = static_cast<size_t>(floor((computePrimitiveCentroid(primitive)[(int)axis] - aabb.lower[(int)axis]) / binSize));
+        // Add the primitive to the bin
+        bins[binIndex].push_back(primitive);
+    }
+
+    // Sort the primitives
+    size_t index = 0;
+    for (auto& bin : bins) {
+        for (Primitive& primitive : bin) {
+            primitives[index++] = primitive;
+        }
+    }
+
+    std::vector<float> costs(primitives.size() - 2);
+
+    auto leftAABB = computeSpanAABB(primitives.subspan(0, 1));
+    for (size_t i = 1; i < primitives.size() - 1; i++) {
+        float leftArea = computeSurfaceArea(leftAABB);
+        costs[i - 1] = (float)i * leftArea;
+        leftAABB = mergeAABBs(leftAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    auto rightAABB = computeSpanAABB(primitives.subspan(primitives.size() - 1, 1));
+    for (size_t i = primitives.size() - 2; i > 0; i--) {
+        float rightArea = computeSurfaceArea(rightAABB);
+        costs[i - 1] += (float)(primitives.size() - i) * rightArea;
+        rightAABB = mergeAABBs(rightAABB, computePrimitiveAABB(primitives[i]));
+    }
+
+    size_t optimalSplit = 0;
+    for (size_t i = 0; i < costs.size(); i++) {
+        if (costs[i] < costs[optimalSplit]) {
+            optimalSplit = i;
+        }
+    }
+
+    return optimalSplit + 1;
+}
+
+// This method calculates the position of a point along a 4th degree bezier curve at time T
+glm::mat4 splineMat(float t, glm::vec3 currentCenter, float movement)
+{
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) + currentCenter) * movement;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) + currentCenter) * movement;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) + currentCenter) * movement;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;
+
+    float oneMinusT = 1.0f - t;
+    float oneMinusTSquared = oneMinusT * oneMinusT;
+    float tSquared = t * t;
+    float tCubed = tSquared * t;
+
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
+
+    return glm::translate(glm::mat4(1.0f), posBezier);
 }

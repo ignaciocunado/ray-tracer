@@ -253,3 +253,5 @@ void drawRay(const Ray& ray, const glm::vec3& color)
 
     glPopAttrib();
 }
+
+std::vector<std::vector<glm::vec3>> debugPlanes;
