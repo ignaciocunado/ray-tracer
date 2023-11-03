@@ -6,6 +6,14 @@
 #include "scene.h"
 #include "screen.h"
 
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
+glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance);
+
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates rays for specified pixel (x, y) and renders.
+void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel);
+
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
 // of depth of field. Here, you generate camera rays s.t. a focus point and a thin lens camera model

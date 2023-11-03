@@ -95,14 +95,14 @@ HitInfo createEmptyHitInfo() {
     };
 }
 
-void checkVec2(const glm::vec2& actual, const glm::vec2& expected, const float eps = 1e-9)
+void checkVec2(const glm::vec2& actual, const glm::vec2& expected, const float eps = 1e-9f)
 {
     for (int coord = 0; coord < 2; coord++) {
         REQUIRE_THAT(actual[coord], Catch::Matchers::WithinAbs(expected[coord], eps));
     }
 }
 
-void checkVec3(const glm::vec3& actual, const glm::vec3& expected, const float eps = 1e-9) {
+void checkVec3(const glm::vec3& actual, const glm::vec3& expected, const float eps = 1e-9f) {
     for (int coord = 0; coord < 3; coord++) {
         REQUIRE_THAT(actual[coord], Catch::Matchers::WithinAbs(expected[coord], eps));
     }
@@ -114,14 +114,14 @@ void checkVertex(const Vertex& actual, const Vertex& expected, const float eps =
     checkVec2(actual.texCoord, expected.texCoord, eps);
 }
 
-void checkPrimitive(const Primitive& actual, const Primitive& expected, const float eps = 1e-9) {
+void checkPrimitive(const Primitive& actual, const Primitive& expected, const float eps = 1e-9f) {
     REQUIRE(actual.meshID == expected.meshID);
     checkVertex(actual.v0, expected.v0, eps);
     checkVertex(actual.v1, expected.v1, eps);
     checkVertex(actual.v2, expected.v2, eps);
 }
 
-void checkPrimitiveSpan(const std::span<Primitive> actual, const std::span<Primitive> expected, const float eps = 1e-9) {
+void checkPrimitiveSpan(const std::span<Primitive> actual, const std::span<Primitive> expected, const float eps = 1e-9f) {
     REQUIRE(actual.size() == expected.size());
     for (int i = 0; i < actual.size(); i++) {
         checkPrimitive(actual[i], expected[i], eps);

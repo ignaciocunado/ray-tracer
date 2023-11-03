@@ -3,10 +3,59 @@
 #include "light.h"
 #include "recursive.h"
 #include "shading.h"
+#include "texture.h"
 #include <framework/trackball.h>
 #ifdef NDEBUG
 #include <omp.h>
 #endif
+
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
+glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance) {
+    const float cosAngle = glm::dot(cameraRay.direction, camera.forward()); // cosine of the angle between these two vectors
+
+    // The following line is get due to: cosAngle = focalDistance / curDistance
+    const float curDistance = focalDistance / cosAngle; // distance for the cameraRay to reach focal plane
+
+    return cameraRay.origin + curDistance * cameraRay.direction;
+}
+
+// Helper method for renderImageWithDepthOfField(...).
+// Calculates rays for specified pixel (x, y) and renders.
+void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
+{
+    float focalDistance = state.features.extra.depthOfFieldDistance;
+    float squareLength = state.features.extra.depthOfFieldSquareLength;
+    uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
+
+    // Generate rays from camera for this pixel (x, y). (Similarly to renderImage(...))
+    std::vector<Ray> generatedRays = generatePixelRays(state, camera, pixel, screen.resolution());
+
+    std::vector<Ray> finalRays;
+    finalRays.reserve(numOfSamples * generatedRays.size());
+
+    // For each of the generated camera ray new rays will be created for the Depth of field effect.
+    for (const Ray& cameraRay : generatedRays) {
+        const glm::vec3 pointOfFocus = getPointOfFocus(camera, cameraRay, focalDistance);
+
+        // Generate many new rays.
+        for (uint32_t i = 0; i < numOfSamples; i++) {
+            // Generate new ray with origin slightly moved, but the direction still
+            // directed towards point of focus.
+
+            const glm::vec2 randomOffset = (state.sampler.next_2d() - 0.5f) * squareLength;
+            // randomOffset is added to the camera plane which is orthogonal to camera.forward().
+            // The orthogonal basis (two orthogonal unit vectors) can be easily retrieved by taking camera.up() and camera.left().
+            const glm::vec3 newOrigin = cameraRay.origin + randomOffset[0] * camera.up() + randomOffset[1] * camera.left();
+            const glm::vec3 newDirection = glm::normalize(pointOfFocus - newOrigin);
+
+            finalRays.push_back(Ray { .origin = newOrigin, .direction = newDirection, .t = cameraRay.t });
+        }
+    }
+
+    auto L = renderRays(state, finalRays);
+    screen.setPixel(pixel.x, pixel.y, L);
+}
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
@@ -20,7 +69,22 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
         return;
     }
 
-    // ...
+#ifdef NDEBUG // Enable multi threading in Release mode
+#pragma omp parallel for schedule(guided)
+#endif
+    // Loop through each pixel.
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+
+            renderImagePixelWithDepthOfField(state, camera, screen, {x, y});
+        }
+    }
 }
 
 // TODO; Extra feature
@@ -34,6 +98,7 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
+}
 
     int samples = features.extra.motionBlurSamples;
     float movement = features.extra.movement;
@@ -122,6 +187,53 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
 }
 
+
+
+
+// Helper function for factorial
+long long factorial(int n)
+{
+    long long f = 1;
+
+    for (int i = 1; i <= n; i++) {
+        f *= i;
+    }
+
+    return f;
+}
+
+void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
+{
+    // Calculate the horizontal values
+    for (int y = 0; y < k; y++) {
+        long double total = 0;
+
+        for (int x = 0; x < k; x++) {
+            float val = float(factorial(k) / (factorial(x) * factorial(k - x)));
+            total += val;
+            filter[x][y] = val;
+        }
+
+        for (int x = 0; x < k; x++) {
+            filter[x][y] /= total;
+        }
+    }
+
+    // Calculate the vertical values
+    for (int x = 0; x < k; x++) {
+        long long total = 0;
+
+        for (int y = 0; y < k; y++) {
+            int val = int(factorial(k) / (factorial(y) * factorial(k - y)));
+            total += val;
+            filter[x][y] = val;
+        }
+
+        for (int y = 0; y < k; y++) {
+            filter[x][y] /= total;
+        }
+    }
+}
 // TODO; Extra feature
 // Given a rendered image, compute and apply a bloom post-processing effect to increase bright areas.
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
@@ -132,9 +244,31 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
         return;
     }
 
-    // ...
-}
+    glm::ivec2 resolution = image.resolution();
+    int width = resolution.x;
+    int height = resolution.y;
+    int k = int(features.extra.bloomFilterSize);
+    std::vector<std::vector<float>> filter(k, std::vector<float>(k));
+    std::vector<glm::vec3> originalPixels = image.pixels();;
 
+    // Compute the gaussian filter
+    computeGaussianFilter(filter, k);
+
+    // Apply the k x k filter to the image, leave the border pixels alone
+    for (int x = k - 2; x < width - k + 2; x++) {
+        for (int y = k - 2; y < height - k + 2; y++) {
+            glm::vec3 color = glm::vec3(0.f);
+
+            for (int i = 0; i < k; i++) {
+                for (int j = 0; j < k; j++) {
+                    color += filter[i][j] * originalPixels[image.indexAt(x + i, y + j)];
+                }
+            }
+
+            image.setPixel(x, y, color);
+        }
+    }
+}
 
 // TODO; Extra feature
 // Given a camera ray (or reflected camera ray) and an intersection, evaluates the contribution of a set of
@@ -164,14 +298,86 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
 // not go on a hunting expedition for your implementation, so please keep it here!
 glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
 {
-    if (state.features.extra.enableEnvironmentMap) {
-        // Part of your implementation should go here
-        return glm::vec3(0.f);
+    if (!state.features.extra.enableEnvironmentMap) {
+        return glm::vec3(0.0f); // Black color.
+    }
+
+    // Index of the face (image) of the cube (of environment map textures). Not yet known.
+    // Indices meaning (order) is listed in scene.h file.
+    int chosenImageId = 0;
+    // Texture coordinates. Not yet known.
+    float u = 0.0f;
+    float v = 0.0f; 
+
+    // Calculate which side of the cube the ray is facing.
+    const float x = ray.direction.x;
+    const float y = ray.direction.y;
+    const float z = ray.direction.z;
+    const float absX = abs(x);
+    const float absY = abs(y);
+    const float absZ = abs(z);
+
+    // The side of the cube can be figured out by checking which coordinate has biggest value, and checking its sign.
+    if (absX >= absY && absX >= absZ) {
+        // X is biggest, so either positive or negative X.
+        if (x > 0.0f) {
+            // Facing positive x direction.
+            chosenImageId = 0;
+            u = z;
+            v = y;
+        } else {
+            // Facing negative x direction.
+            chosenImageId = 1;
+            u = -z;
+            v = y;
+        }
+    } else if (absY >= absZ) {
+        // Y is biggest, so either positive or negative Y.
+        if (y > 0.0f) {
+            // Facing positive y direction.
+            chosenImageId = 2;
+            u = -x;
+            v = -z;
+        } else {
+            // Facing negative y direction.
+            chosenImageId = 3;
+            u = -x;
+            v = z;
+        }
     } else {
-        return glm::vec3(0.f);
+        // Z is biggest, so either positive or negative Z.
+        if (z > 0.0f) {
+            // Facing positive z direction.
+            chosenImageId = 4;
+            u = -x;
+            v = y;
+        } else {
+            // Facing negative z direction.
+            chosenImageId = 5;
+            u = x;
+            v = y;
+        }
+    }
+
+    // Check if texture is present.
+    if (!state.scene.environmentMapTextures[chosenImageId]) {
+        return glm::vec3(0.0f); // Black color.
+    }
+
+    // Normalize (u, v) coordinates to be between [0; 1]x[0; 1].
+    const float biggestAbsCoord = std::max(absX, std::max(absY, absZ));
+    u = (u / biggestAbsCoord + 1.0f) * 0.5f;
+    v = (v / biggestAbsCoord + 1.0f) * 0.5f;
+
+    const Image& chosenImage = *(state.scene.environmentMapTextures[chosenImageId]);
+    const glm::vec2 texCoords(u, v);
+
+    if (state.features.enableBilinearTextureFiltering) {
+        return sampleTextureBilinear(chosenImage, texCoords);
+    } else {
+        return sampleTextureNearest(chosenImage, texCoords);
     }
 }
-
 
 // TODO: Extra feature
 // As an alternative to `splitPrimitivesByMedian`, use a SAH+binning splitting criterion. Refer to

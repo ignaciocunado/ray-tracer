@@ -53,7 +53,7 @@ glm::vec3 sampleTextureBilinear(const Image& image, const glm::vec2& texCoord)
     float x = texCoord[0] * image.width;
     float y = (1 - texCoord[1]) * image.height;
 
-    // Check if we were given any of the cornerns or edges
+    // Check if we were given any of the corners or edges
     if (x == 0 && y == 0 || x == image.width && y == 0 || x == 0 && y == image.height || x == image.width && y == image.height || x <= 0.5f || x >= image.width - 0.5f || y <= 0.5f || y >= image.height - 0.5f) {
         if (x >= image.width) {
             x--;
