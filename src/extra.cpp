@@ -470,7 +470,7 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
 {
     using Primitive = BVH::Primitive;
 
-    const size_t numBins = 5;
+    const size_t numBins = 10;
 
     // Initialize the bins
     std::vector<std::vector<Primitive>> bins(numBins + 1);

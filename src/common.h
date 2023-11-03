@@ -74,9 +74,6 @@ struct ExtraFeatures {
     uint32_t numGlossySamples = 1;
     float glossyExponent = 1.f;
 
-    // Parameters for SAH binning
-    uint32_t numBins = 10;
-
     // Parameters for bloom effect
     uint32_t bloomFilterSize = 3;
 
