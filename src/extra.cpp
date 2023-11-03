@@ -341,7 +341,7 @@ float computeSurfaceArea(const AxisAlignedBox& aabb)
 // - primitives; the modifiable range of triangles that requires splitting
 // - return;     the split position of the modified range of triangles
 // This method is unit-tested, so do not change the function signature.
-size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVHInterface::Primitive> primitives)
+size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::span<BVH::Primitive> primitives)
 {
     using Primitive = BVHInterface::Primitive;
 
