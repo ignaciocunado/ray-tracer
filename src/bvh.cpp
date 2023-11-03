@@ -12,8 +12,6 @@
 #include <framework/opengl_includes.h>
 #include <iostream>
 
-std::vector<std::vector<glm::vec3>> debugPlanes;
-
 // Helper method to fill in hitInfo object. This can be safely ignored (or extended).
 // Note: many of the functions in this helper tie in to standard/extra features you will have
 // to implement separately, see interpolate.h/.cpp for these parts of the project
@@ -81,7 +79,10 @@ BVH::BVH(const Scene& scene, const Features& features)
     // Tell underlying vectors how large they should approximately be
     m_primitives.reserve(numTriangles);
     m_nodes.reserve(numTriangles + 1);
-    debugPlanes = std::vector(numTriangles + 1, std::vector<glm::vec3>(4));
+
+    if (features.extra.enableBvhSahBinning) {
+        debugPlanes = std::vector(numTriangles + 1, std::vector<glm::vec3>(4));
+    }
 
     // Recursively build BVH structure; this is where your implementation comes in
     m_nodes.emplace_back(); // Create root node
