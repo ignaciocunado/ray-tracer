@@ -258,6 +258,7 @@ int main(int argc, char** argv)
                     uint32_t minSamples = 1u, maxSamples = 64u;
                     ImGui::Indent();
                     ImGui::SliderScalar("Glossy samples", ImGuiDataType_U32, &config.features.extra.numGlossySamples, &minSamples, &maxSamples);
+                    ImGui::SliderFloat("Glossy exponent", &config.features.extra.glossyExponent, 1.f, 5.f);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Environment maps", &config.features.extra.enableEnvironmentMap);
