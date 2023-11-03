@@ -81,6 +81,7 @@ int main(int argc, char** argv)
         float sizeDebugMotionBlur = 0.0f;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+        bool debugMotionBlur { false };
         
         // Variables for visual debug of Depth of Field.
         bool debugFocalPlane { false };

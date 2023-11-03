@@ -120,7 +120,6 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
-}
 
     int samples = features.extra.motionBlurSamples;
     float movement = features.extra.movement;
