@@ -77,8 +77,11 @@ int main(int argc, char** argv)
 
         int bvhDebugLevel = 0;
         int bvhDebugLeaf = 0;
+        float timeDebugMotionBlur = 0.0f;
+        float sizeDebugMotionBlur = 0.0f;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
+        bool debugMotionBlur { false };
         
         // Variables for visual debug of Depth of Field.
         bool debugFocalPlane { false };
@@ -153,7 +156,7 @@ int main(int argc, char** argv)
                     "Teapot",
                     "Dragon",
                     /* "AABBs",*/ "Spheres", /*"Mixed",*/
-                    "Custom",
+                    "Custom"
                 };
                 if (ImGui::Combo("Scenes", reinterpret_cast<int*>(&sceneType), items.data(), int(items.size()))) {
                     debugRays.clear();
@@ -246,6 +249,8 @@ int main(int argc, char** argv)
                 if (config.features.extra.enableMotionBlur) {
                     ImGui::Indent();
                     // Add motion blur settings here, if necessary
+                    ImGui::SliderInt("Motion Blur Samples", &config.features.extra.motionBlurSamples, 0, 3000);
+                    ImGui::SliderFloat("Movement", &config.features.extra.movement, 0, 3);
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Glossy reflections", &config.features.extra.enableGlossyReflection);
@@ -303,6 +308,11 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Draw BVH Leaf", &debugBVHLeaf);
                 if (debugBVHLeaf)
                     ImGui::SliderInt("BVH Leaf", &bvhDebugLeaf, 1, bvh.numLeaves());
+                ImGui::Checkbox("Motion Blur", &debugMotionBlur);
+                if (debugMotionBlur) {
+                    ImGui::SliderFloat("Time", &timeDebugMotionBlur, 0, 1);
+                    ImGui::SliderFloat("Size", &sizeDebugMotionBlur, 0, 3);
+                }
             }
 
             ImGui::Spacing();
@@ -474,6 +484,25 @@ int main(int argc, char** argv)
                         bvh.debugDrawLeaf(bvhDebugLeaf);
                     enableDebugDraw = false;
                     glPopAttrib();
+                }
+                if (debugMotionBlur) {
+                    glm::mat4 spline = splineMat(timeDebugMotionBlur, glm::vec3 { 0 }, sizeDebugMotionBlur);
+                    
+                    glBegin(GL_LINES);
+                    for (float t = 0; t < 1.0f; t += 0.01f) {
+                        glm::vec3 pos {0};
+                        glm::mat4 transform = splineMat(t, glm::vec3 { 0 }, sizeDebugMotionBlur);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glColor3f(1, 0, 1);
+                        glVertex3f(newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3]);
+                    }
+                    
+                    glEnd();
+                    glMatrixMode(GL_MODELVIEW);
+                    glPushMatrix();
+                    glMultMatrixf(glm::value_ptr(spline));
+                    drawScene(scene);
+                    glPopMatrix();
                 }
             } break;
             case ViewMode::RayTracing: {

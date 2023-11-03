@@ -5,6 +5,9 @@
 #include "shading.h"
 #include "texture.h"
 #include <framework/trackball.h>
+#ifdef NDEBUG
+#include <omp.h>
+#endif
 
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
@@ -117,7 +120,96 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
+
+    int samples = features.extra.motionBlurSamples;
+    float movement = features.extra.movement;
+
+    #ifdef NDEBUG // Enable multi threading in Release mode
+    #pragma omp parallel for schedule(guided)
+    #endif
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistenct behavior across frames
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+            
+            glm::vec3 L;
+            for (int i = 0; i < samples; i++) {
+                float time = state.sampler.next_1d();
+
+                std::vector<Sphere> newSpheres;
+                for (int j = 0; j < scene.spheres.size(); j++) {
+                    Sphere change = scene.spheres[j];
+                    glm::vec3 center = change.center;
+                    glm::mat4 transform = splineMat(time, center, movement);
+                    glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
+                    glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
+                    Sphere newSphere = {
+                        .center = newCenter3,
+                        .radius = change.radius,
+                        .material = change.material
+                    };
+                    newSpheres.push_back(newSphere);
+                }
+
+                std::vector<Mesh> newMeshes;
+                for (int j = 0; j < scene.meshes.size(); j++) {
+                    Mesh change = scene.meshes[j];
+                    std::vector<Vertex> vertices = change.vertices;
+                    std::vector<Vertex> newVertices;
+                    for (int k = 0; k < vertices.size(); k++) {
+                        Vertex v = vertices[k];
+                        glm::vec3 pos = v.position;
+                        glm::mat4 transform = splineMat(time, pos, movement);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glm::vec3 newPos3 = { newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3] };
+                        Vertex newVertex = {
+                            .position = newPos3,
+                            .normal = v.normal,
+                            .texCoord = v.texCoord
+                        };
+                        newVertices.push_back(newVertex);
+                    }
+                    Mesh newMesh = {
+                        .vertices = newVertices,
+                        .triangles = change.triangles,
+                        .material = change.material
+                    };
+                    newMeshes.push_back(newMesh);
+                }
+
+                Scene newScene
+                {
+                    .type = scene.type,
+                    .meshes = newMeshes,
+                    .spheres = newSpheres,
+                    .lights = scene.lights
+
+                };
+                BVH bvh = BVH(newScene, features);
+                RenderState newState = {
+                    .scene = newScene,
+                    .features = state.features,
+                    .bvh = bvh,
+                    .sampler = state.sampler
+                };
+
+                auto rays = generatePixelRays(newState, camera, { x, y }, screen.resolution());
+                L += renderRays(newState, rays);
+            }
+            L = L / (float) samples;
+            screen.setPixel(x, y, L);
+        }
+    }
 }
+
+
+
 
 // Helper function for factorial
 long long factorial(int n)
@@ -163,7 +255,6 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
         }
     }
 }
-
 // TODO; Extra feature
 // Given a rendered image, compute and apply a bloom post-processing effect to increase bright areas.
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
@@ -322,4 +413,23 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     using Primitive = BVH::Primitive;
 
     return 0; // This is clearly not the solution
+}
+
+// This method calculates the position of a point along a 4th degree bezier curve at time T
+glm::mat4 splineMat(float t, glm::vec3 currentCenter, float movement)
+{
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) + currentCenter) * movement;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) + currentCenter) * movement;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) + currentCenter) * movement;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;
+
+    float oneMinusT = 1.0f - t;
+    float oneMinusTSquared = oneMinusT * oneMinusT;
+    float tSquared = t * t;
+    float tCubed = tSquared * t;
+
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
+
+    return glm::translate(glm::mat4(1.0f), posBezier);
 }
