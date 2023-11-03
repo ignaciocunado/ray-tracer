@@ -210,6 +210,20 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     }
 }
 
+// Helper function for creating a high-pass filter
+void computeHighpassFilter(Screen& image, float threshold) {
+    // Relative luminance vector
+    const glm::vec3 luminanceVector = glm::vec3(0.2126f, 0.7152f, 0.0722f);
+
+    for (auto& pixel : image.pixels()) {
+        float luminance = glm::dot(luminanceVector, pixel);
+
+        if (luminance < threshold) {
+            pixel = glm::vec3(0.f);
+        }
+    }
+}
+
 // Helper function for factorial
 long long factorial(int n)
 {
@@ -222,14 +236,15 @@ long long factorial(int n)
     return f;
 }
 
+// Helper function for computing a gaussian filter
 void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
 {
     // Calculate the horizontal values
     for (int y = 0; y < k; y++) {
-        long double total = 0;
+        float total = 0;
 
         for (int x = 0; x < k; x++) {
-            float val = float(factorial(k) / (factorial(x) * factorial(k - x)));
+            auto val = float(factorial(k) / (factorial(x) * factorial(k - x)));
             total += val;
             filter[x][y] = val;
         }
@@ -241,10 +256,10 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
 
     // Calculate the vertical values
     for (int x = 0; x < k; x++) {
-        long long total = 0;
+        float total = 0;
 
         for (int y = 0; y < k; y++) {
-            int val = int(factorial(k) / (factorial(y) * factorial(k - y)));
+            auto val = float(factorial(k) / (factorial(y) * factorial(k - y)));
             total += val;
             filter[x][y] = val;
         }
@@ -269,24 +284,33 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
     int height = resolution.y;
     int k = int(features.extra.bloomFilterSize);
     std::vector<std::vector<float>> filter(k, std::vector<float>(k));
-    std::vector<glm::vec3> originalPixels = image.pixels();
-    ;
+    Screen thresholdedImage = image;
+
+    // Compute the thresholded image
+    computeHighpassFilter(thresholdedImage,  features.extra.bloomThreshold);
 
     // Compute the gaussian filter
     computeGaussianFilter(filter, k);
 
-    // Apply the k x k filter to the image, leave the border pixels alone
+    // Apply the k x k filter to the thresholded image, leave the border pixels alone
     for (int x = k - 2; x < width - k + 2; x++) {
         for (int y = k - 2; y < height - k + 2; y++) {
-            glm::vec3 color = glm::vec3(0.f);
+            auto color = glm::vec3(0.f);
 
             for (int i = 0; i < k; i++) {
                 for (int j = 0; j < k; j++) {
-                    color += filter[i][j] * originalPixels[image.indexAt(x + i, y + j)];
+                    color += filter[i][j] * thresholdedImage.pixels()[image.indexAt(x + i, y + j)];
                 }
             }
 
-            image.setPixel(x, y, color);
+            thresholdedImage.setPixel(x, y, color);
+        }
+    }
+
+    // Add the thresholded image to the original image
+    for (int x = 0; x < width; x++) {
+        for (int y = 0; y < height; y++) {
+            image.setPixel(x, y, image.pixels()[image.indexAt(x, y)] + thresholdedImage.pixels()[image.indexAt(x, y)]);
         }
     }
 }
