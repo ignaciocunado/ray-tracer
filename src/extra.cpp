@@ -21,12 +21,33 @@ glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const f
 }
 
 // Helper method for renderImageWithDepthOfField(...).
+// Generates random offset to offset the ray.origin with.
+glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
+    // Random offset will be generated within the circle with origin (0, 0) and a radius of circleRadius.
+    
+    // To get that, we need two random values: 
+    // random angle, so that we get random point on circle boundary; and
+    // random distance from origin, so that point is randomly inside the circle.
+    const glm::vec2 randomValues = sampler.next_2d();
+    const float randomAngleInRadians = randomValues[0] * glm::two_pi<float>();
+    // Taking a square root to make it more uniformly generated along the circle.
+    const float randomDistance = sqrt(randomValues[1]) * circleRadius; 
+
+    // Calculate coordinates of the point.
+    const float x = glm::cos(randomAngleInRadians) * randomDistance;
+    const float y = glm::sin(randomAngleInRadians) * randomDistance;
+
+    return glm::vec2(x, y);
+}
+ 
+// Helper method for renderImageWithDepthOfField(...).
 // Calculates rays for specified pixel (x, y) and renders.
-void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
+std::vector<Ray> generatePixelRaysForDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
 {
-    float focalDistance = state.features.extra.depthOfFieldDistance;
-    float squareLength = state.features.extra.depthOfFieldSquareLength;
-    uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
+    const float focalDistance = state.features.extra.depthOfFieldDistance;
+    const float circleDiameter = state.features.extra.depthOfFieldCircleDiameter;
+    const float circleRadius = circleDiameter * 0.5f;
+    const uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
 
     // Generate rays from camera for this pixel (x, y). (Similarly to renderImage(...))
     std::vector<Ray> generatedRays = generatePixelRays(state, camera, pixel, screen.resolution());
@@ -43,7 +64,7 @@ void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camer
             // Generate new ray with origin slightly moved, but the direction still
             // directed towards point of focus.
 
-            const glm::vec2 randomOffset = (state.sampler.next_2d() - 0.5f) * squareLength;
+            const glm::vec2 randomOffset = generateRandomOffset(state.sampler, circleRadius);
             // randomOffset is added to the camera plane which is orthogonal to camera.forward().
             // The orthogonal basis (two orthogonal unit vectors) can be easily retrieved by taking camera.up() and camera.left().
             const glm::vec3 newOrigin = cameraRay.origin + randomOffset[0] * camera.up() + randomOffset[1] * camera.left();
@@ -53,8 +74,7 @@ void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camer
         }
     }
 
-    auto L = renderRays(state, finalRays);
-    screen.setPixel(pixel.x, pixel.y, L);
+    return finalRays;
 }
 
 // TODO; Extra feature
@@ -82,7 +102,9 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
 
-            renderImagePixelWithDepthOfField(state, camera, screen, {x, y});
+            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, {x, y});
+            auto L = renderRays(state, rays);
+            screen.setPixel(x, y, L);
         }
     }
 }

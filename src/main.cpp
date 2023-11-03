@@ -46,6 +46,8 @@ static void setOpenGLMatrices(const Trackball& camera);
 static void drawLightsOpenGL(const Scene& scene, const Trackball& camera, int selectedLight);
 static void drawSceneOpenGL(const Scene& scene);
 bool sliderIntSquarePower(const char* label, int* v, int v_min, int v_max);
+std::vector<glm::vec3> generateFocusPlane(const Trackball& camera, const float focalDistance);
+
 
 int main(int argc, char** argv)
 {
@@ -79,7 +81,16 @@ int main(int argc, char** argv)
         float sizeDebugMotionBlur = 0.0f;
         bool debugBVHLevel { false };
         bool debugBVHLeaf { false };
-        bool debugMotionBlur { false };
+        
+        // Variables for visual debug of Depth of Field.
+        bool debugFocalPlane { false };
+        bool focalPlaneDebugDrawContinuous { false };
+        float focalPlaneDebugTransparency { 0.75f };
+        std::vector<glm::vec3> focalPlaneDebug = generateFocusPlane(camera, config.features.extra.depthOfFieldDistance);
+        std::vector<glm::vec3> savedCameraSettings {
+            camera.position(), camera.left(), camera.up()
+        }; 
+        glm::vec3 focalPointDebug { 0.0f };
 
         ViewMode viewMode { ViewMode::Rasterization };
 
@@ -91,7 +102,26 @@ int main(int argc, char** argv)
                     RenderState state = { .scene = scene, .features = config.features, .bvh = bvh, .sampler = { debugRaySeed } };
                     auto tmp = window.getNormalizedCursorPos();
                     auto pixel = glm::ivec2(tmp * glm::vec2(screen.resolution()));
-                    debugRays = generatePixelRays(state, camera, pixel, screen.resolution());
+
+                    // Get debugRays based on whether Depth of Field is enabled.
+                    // (since Depth of Field calls generatePixelRays on its own, but also generates more for them.)
+                    if (config.features.extra.enableDepthOfField) {
+                        debugRays = generatePixelRaysForDepthOfField(state, camera, screen, pixel);
+                        // Also save current camera settings to draw a disc.
+                        savedCameraSettings = {
+                            camera.position(), camera.left(), camera.up()
+                        }; 
+                        // Also, the focal point (where rays intersect).
+                        focalPointDebug = getPointOfFocus(camera, debugRays[0],
+                            config.features.extra.depthOfFieldDistance);
+                    } else {
+                        debugRays = generatePixelRays(state, camera, pixel, screen.resolution());
+                    }
+                } break;
+                case GLFW_KEY_F: {
+                    if (!focalPlaneDebugDrawContinuous) {
+                        focalPlaneDebug = generateFocusPlane(camera, config.features.extra.depthOfFieldDistance);
+                    }
                 } break;
                 case GLFW_KEY_A: {
                     debugBVHLeafId++;
@@ -196,11 +226,22 @@ int main(int argc, char** argv)
                 ImGui::Checkbox("Depth of field", &config.features.extra.enableDepthOfField);
                 if (config.features.extra.enableDepthOfField) {
                     ImGui::Indent();
-                    ImGui::SliderFloat("Distance", &config.features.extra.depthOfFieldDistance, 0.01f, 10.0f);
-                    ImGui::SliderFloat("Square Length", &config.features.extra.depthOfFieldSquareLength, 0.01f, 0.5f);
+                    ImGui::SliderFloat("Distance", &config.features.extra.depthOfFieldDistance, 1.0f, 5.0f);
+                    ImGui::SliderFloat("Aperture (circle diameter)", &config.features.extra.depthOfFieldCircleDiameter, 0.0f, 0.5f);
                     
-                    uint32_t minSamples = 1u, maxSamples = 64u;
+                    uint32_t minSamples = 1u, maxSamples = 128u;
                     ImGui::SliderScalar("Num of DOF samples", ImGuiDataType_U32, &config.features.extra.numDepthOfFieldSamples, &minSamples, &maxSamples);
+                    
+                    // Visual debug for Focal plane.
+                    ImGui::Text("Debug Focal Plane");
+                    ImGui::Indent();
+                    ImGui::Checkbox("Draw Focal Plane", &debugFocalPlane);
+                    if (debugFocalPlane) {
+                        ImGui::Checkbox("Continuously generate focal plane", &focalPlaneDebugDrawContinuous);
+                        ImGui::SliderFloat("Transparency of focal plane", &focalPlaneDebugTransparency, 0.0f, 1.0f);
+                    }
+                    ImGui::Unindent();
+
                     ImGui::Unindent();
                 }
                 ImGui::Checkbox("Motion blur", &config.features.extra.enableMotionBlur);
@@ -402,11 +443,28 @@ int main(int argc, char** argv)
                         RenderState state = { .scene = scene, .features = config.features, .bvh = bvh, .sampler = { debugRaySeed } };
                         (void)renderRays(state, debugRays);
                         enableDebugDraw = false;
+
+                        // Draw disk and point on focal point for Dept of Field if it is turned on.
+                        if (config.features.extra.enableDepthOfField) {
+                            // Draw disk from which the rays are sampled.
+                            drawDisk(savedCameraSettings[0], savedCameraSettings[1], savedCameraSettings[2], 
+                                config.features.extra.depthOfFieldCircleDiameter * 0.5f);
+                            // Draw point on focal plane where rays intersect.
+                            drawSphere(focalPointDebug, 0.01f, glm::vec3(0.75f, 0.75f, 0.25f));
+                        }
                     }
                 }
                 glPopAttrib();
 
                 drawLightsOpenGL(scene, camera, selectedLightIdx);
+
+                // Visual debug: draw focus plane for Depth of Field.
+                if (debugFocalPlane) {
+                    if (focalPlaneDebugDrawContinuous) {
+                        focalPlaneDebug = generateFocusPlane(camera, config.features.extra.depthOfFieldDistance);
+                    }
+                    drawFocalPlane(focalPlaneDebug, focalPlaneDebugTransparency);
+                }
 
                 if (debugBVHLevel || debugBVHLeaf) {
                     glPushAttrib(GL_ALL_ATTRIB_BITS);
@@ -517,6 +575,21 @@ int main(int argc, char** argv)
     }
 
     return 0;
+}
+
+// Generates focus plane. Returns the vector of four points, which are the corners of the plane.
+// Technically, this generates a square and not a plane, but a square looks better for visual debug.
+std::vector<glm::vec3> generateFocusPlane(const Trackball& camera, const float focalDistance)
+{
+    const glm::vec3 pointOnFocusPlane = camera.position() + focalDistance * camera.forward();
+    const float halfPlaneLength = 1.0f;
+    const glm::vec3 lowerLeftPoint = pointOnFocusPlane + halfPlaneLength * camera.left() - halfPlaneLength * camera.up();
+    const glm::vec3 upperLeftPoint = pointOnFocusPlane + halfPlaneLength * camera.left() + halfPlaneLength * camera.up();
+    const glm::vec3 lowerRightPoint = pointOnFocusPlane - halfPlaneLength * camera.left() - halfPlaneLength * camera.up();
+    const glm::vec3 upperRightPoint = pointOnFocusPlane - halfPlaneLength * camera.left() + halfPlaneLength * camera.up();
+
+    // Corners are returned in an order such that drawing a quad should result in a square.
+    return { lowerLeftPoint, upperLeftPoint, upperRightPoint, lowerRightPoint };
 }
 
 static void setOpenGLMatrices(const Trackball& camera)

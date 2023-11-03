@@ -11,8 +11,12 @@
 glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance);
 
 // Helper method for renderImageWithDepthOfField(...).
+// Generates random offset to offset the ray.origin with.
+glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius);
+
+// Helper method for renderImageWithDepthOfField(...).
 // Calculates rays for specified pixel (x, y) and renders.
-void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel);
+std::vector<Ray> generatePixelRaysForDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel);
 
 // TODO; Extra feature
 // Given the same input as for `renderImage()`, instead render an image with your own implementation
