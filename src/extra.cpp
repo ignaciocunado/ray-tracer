@@ -4,11 +4,13 @@
 #include "recursive.h"
 #include "shading.h"
 #include "texture.h"
+#include "draw.h"
 #include <framework/trackball.h>
 
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
-glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance) {
+glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const float focalDistance)
+{
     const float cosAngle = glm::dot(cameraRay.direction, camera.forward()); // cosine of the angle between these two vectors
 
     // The following line is get due to: cosAngle = focalDistance / curDistance
@@ -79,7 +81,7 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
 
-            renderImagePixelWithDepthOfField(state, camera, screen, {x, y});
+            renderImagePixelWithDepthOfField(state, camera, screen, { x, y });
         }
     }
 }
@@ -157,7 +159,8 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
     int height = resolution.y;
     int k = int(features.extra.bloomFilterSize);
     std::vector<std::vector<float>> filter(k, std::vector<float>(k));
-    std::vector<glm::vec3> originalPixels = image.pixels();;
+    std::vector<glm::vec3> originalPixels = image.pixels();
+    ;
 
     // Compute the gaussian filter
     computeGaussianFilter(filter, k);
@@ -191,7 +194,7 @@ void postprocessImageWithBloom(const Scene& scene, const Features& features, con
 // not go on a hunting expedition for your implementation, so please keep it here!
 void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInfo, glm::vec3& hitColor, int rayDepth)
 {
-    glm::vec3 glossyColor = glm::vec3 {0.f};
+    glm::vec3 glossyColor = glm::vec3 { 0.f };
     // Generate an initial specular ray, and base secondary glossies on this ray
     glm::vec3 intersection = ray.origin + ray.direction * ray.t;
     Ray initialSpecularRay = generateReflectionRay(ray, hitInfo);
@@ -216,12 +219,13 @@ void renderRayGlossyComponent(RenderState& state, Ray ray, const HitInfo& hitInf
 
         // Get the sampled coordinates
         glm::vec3 sampledU = u * sampledDiskRadius * cos(theta);
-        glm::vec3 sampledV = v*  sampledDiskRadius * sin(theta);
+        glm::vec3 sampledV = v * sampledDiskRadius * sin(theta);
 
         glm::vec3 sampledDirection = glm::normalize(initialSpecularRay.direction + sampledU + sampledV);
 
         // Generate a ray and render it
         Ray glossyRay = Ray { .origin = intersection + sampledDirection * 1.0e-5f, .direction = sampledDirection, .t = std::numeric_limits<float>::max() };
+        drawRay(glossyRay, glm::vec3 { 0, 1, 1 });
         glossyColor += renderRay(state, glossyRay, rayDepth + 1);
     }
 
@@ -248,7 +252,7 @@ glm::vec3 sampleEnvironmentMap(RenderState& state, Ray ray)
     int chosenImageId = 0;
     // Texture coordinates. Not yet known.
     float u = 0.0f;
-    float v = 0.0f; 
+    float v = 0.0f;
 
     // Calculate which side of the cube the ray is facing.
     const float x = ray.direction.x;
