@@ -6,6 +6,9 @@
 #include "texture.h"
 #include "draw.h"
 #include <framework/trackball.h>
+#ifdef NDEBUG
+#include <omp.h>
+#endif
 
 // Helper method for renderImageWithDepthOfField(...).
 // Calculates the position of the point which is on the focal plane, and which is hit by cameraRay.
@@ -20,12 +23,33 @@ glm::vec3 getPointOfFocus(const Trackball& camera, const Ray& cameraRay, const f
 }
 
 // Helper method for renderImageWithDepthOfField(...).
+// Generates random offset to offset the ray.origin with.
+glm::vec2 generateRandomOffset(Sampler& sampler, const float circleRadius) {
+    // Random offset will be generated within the circle with origin (0, 0) and a radius of circleRadius.
+    
+    // To get that, we need two random values: 
+    // random angle, so that we get random point on circle boundary; and
+    // random distance from origin, so that point is randomly inside the circle.
+    const glm::vec2 randomValues = sampler.next_2d();
+    const float randomAngleInRadians = randomValues[0] * glm::two_pi<float>();
+    // Taking a square root to make it more uniformly generated along the circle.
+    const float randomDistance = sqrt(randomValues[1]) * circleRadius; 
+
+    // Calculate coordinates of the point.
+    const float x = glm::cos(randomAngleInRadians) * randomDistance;
+    const float y = glm::sin(randomAngleInRadians) * randomDistance;
+
+    return glm::vec2(x, y);
+}
+ 
+// Helper method for renderImageWithDepthOfField(...).
 // Calculates rays for specified pixel (x, y) and renders.
-void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
+std::vector<Ray> generatePixelRaysForDepthOfField(RenderState& state, const Trackball& camera, Screen& screen, const glm::ivec2& pixel)
 {
-    float focalDistance = state.features.extra.depthOfFieldDistance;
-    float squareLength = state.features.extra.depthOfFieldSquareLength;
-    uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
+    const float focalDistance = state.features.extra.depthOfFieldDistance;
+    const float circleDiameter = state.features.extra.depthOfFieldCircleDiameter;
+    const float circleRadius = circleDiameter * 0.5f;
+    const uint32_t numOfSamples = state.features.extra.numDepthOfFieldSamples;
 
     // Generate rays from camera for this pixel (x, y). (Similarly to renderImage(...))
     std::vector<Ray> generatedRays = generatePixelRays(state, camera, pixel, screen.resolution());
@@ -42,7 +66,7 @@ void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camer
             // Generate new ray with origin slightly moved, but the direction still
             // directed towards point of focus.
 
-            const glm::vec2 randomOffset = (state.sampler.next_2d() - 0.5f) * squareLength;
+            const glm::vec2 randomOffset = generateRandomOffset(state.sampler, circleRadius);
             // randomOffset is added to the camera plane which is orthogonal to camera.forward().
             // The orthogonal basis (two orthogonal unit vectors) can be easily retrieved by taking camera.up() and camera.left().
             const glm::vec3 newOrigin = cameraRay.origin + randomOffset[0] * camera.up() + randomOffset[1] * camera.left();
@@ -52,8 +76,7 @@ void renderImagePixelWithDepthOfField(RenderState& state, const Trackball& camer
         }
     }
 
-    auto L = renderRays(state, finalRays);
-    screen.setPixel(pixel.x, pixel.y, L);
+    return finalRays;
 }
 
 // TODO; Extra feature
@@ -81,7 +104,9 @@ void renderImageWithDepthOfField(const Scene& scene, const BVHInterface& bvh, co
                 .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
             };
 
-            renderImagePixelWithDepthOfField(state, camera, screen, { x, y });
+            const std::vector<Ray> rays = generatePixelRaysForDepthOfField(state, camera, screen, {x, y});
+            auto L = renderRays(state, rays);
+            screen.setPixel(x, y, L);
         }
     }
 }
@@ -97,7 +122,96 @@ void renderImageWithMotionBlur(const Scene& scene, const BVHInterface& bvh, cons
     if (!features.extra.enableMotionBlur) {
         return;
     }
+
+    int samples = features.extra.motionBlurSamples;
+    float movement = features.extra.movement;
+
+    #ifdef NDEBUG // Enable multi threading in Release mode
+    #pragma omp parallel for schedule(guided)
+    #endif
+    for (int y = 0; y < screen.resolution().y; y++) {
+        for (int x = 0; x != screen.resolution().x; x++) {
+            // Assemble useful objects on a per-pixel basis; e.g. a per-thread sampler
+            // Note; we seed the sampler for consistenct behavior across frames
+            RenderState state = {
+                .scene = scene,
+                .features = features,
+                .bvh = bvh,
+                .sampler = { static_cast<uint32_t>(screen.resolution().y * x + y) }
+            };
+            
+            glm::vec3 L;
+            for (int i = 0; i < samples; i++) {
+                float time = state.sampler.next_1d();
+
+                std::vector<Sphere> newSpheres;
+                for (int j = 0; j < scene.spheres.size(); j++) {
+                    Sphere change = scene.spheres[j];
+                    glm::vec3 center = change.center;
+                    glm::mat4 transform = splineMat(time, center, movement);
+                    glm::vec4 newCenter = transform * glm::vec4 { center[0], center[1], center[2], 1 };
+                    glm::vec3 newCenter3 = { newCenter[0] / newCenter[3], newCenter[1] / newCenter[3], newCenter[2] / newCenter[3] };
+                    Sphere newSphere = {
+                        .center = newCenter3,
+                        .radius = change.radius,
+                        .material = change.material
+                    };
+                    newSpheres.push_back(newSphere);
+                }
+
+                std::vector<Mesh> newMeshes;
+                for (int j = 0; j < scene.meshes.size(); j++) {
+                    Mesh change = scene.meshes[j];
+                    std::vector<Vertex> vertices = change.vertices;
+                    std::vector<Vertex> newVertices;
+                    for (int k = 0; k < vertices.size(); k++) {
+                        Vertex v = vertices[k];
+                        glm::vec3 pos = v.position;
+                        glm::mat4 transform = splineMat(time, pos, movement);
+                        glm::vec4 newPos = transform * glm::vec4 { pos[0], pos[1], pos[2], 1 };
+                        glm::vec3 newPos3 = { newPos[0] / newPos[3], newPos[1] / newPos[3], newPos[2] / newPos[3] };
+                        Vertex newVertex = {
+                            .position = newPos3,
+                            .normal = v.normal,
+                            .texCoord = v.texCoord
+                        };
+                        newVertices.push_back(newVertex);
+                    }
+                    Mesh newMesh = {
+                        .vertices = newVertices,
+                        .triangles = change.triangles,
+                        .material = change.material
+                    };
+                    newMeshes.push_back(newMesh);
+                }
+
+                Scene newScene
+                {
+                    .type = scene.type,
+                    .meshes = newMeshes,
+                    .spheres = newSpheres,
+                    .lights = scene.lights
+
+                };
+                BVH bvh = BVH(newScene, features);
+                RenderState newState = {
+                    .scene = newScene,
+                    .features = state.features,
+                    .bvh = bvh,
+                    .sampler = state.sampler
+                };
+
+                auto rays = generatePixelRays(newState, camera, { x, y }, screen.resolution());
+                L += renderRays(newState, rays);
+            }
+            L = L / (float) samples;
+            screen.setPixel(x, y, L);
+        }
+    }
 }
+
+
+
 
 // Helper function for factorial
 long long factorial(int n)
@@ -143,7 +257,6 @@ void computeGaussianFilter(std::vector<std::vector<float>>& filter, int k)
         }
     }
 }
-
 // TODO; Extra feature
 // Given a rendered image, compute and apply a bloom post-processing effect to increase bright areas.
 // This method is not unit-tested, but we do expect to find it **exactly here**, and we'd rather
@@ -337,4 +450,23 @@ size_t splitPrimitivesBySAHBin(const AxisAlignedBox& aabb, uint32_t axis, std::s
     using Primitive = BVH::Primitive;
 
     return 0; // This is clearly not the solution
+}
+
+// This method calculates the position of a point along a 4th degree bezier curve at time T
+glm::mat4 splineMat(float t, glm::vec3 currentCenter, float movement)
+{
+    glm::vec3 p0 = (glm::vec3(0, 0, 0) + currentCenter) * movement;
+    glm::vec3 p1 = (glm::vec3(0, 1, 1) + currentCenter) * movement;
+    glm::vec3 p2 = (glm::vec3(1, 1, -1) + currentCenter) * movement;
+    glm::vec3 p3 = (glm::vec3(1, 0, 0) + currentCenter) * movement;
+    glm::vec3 p4 = (glm::vec3(1.5, 1, 2) + currentCenter) * movement;
+
+    float oneMinusT = 1.0f - t;
+    float oneMinusTSquared = oneMinusT * oneMinusT;
+    float tSquared = t * t;
+    float tCubed = tSquared * t;
+
+    glm::vec3 posBezier = (oneMinusTSquared * oneMinusT * oneMinusT * p0) + (4.0f * oneMinusTSquared * oneMinusT * t * p1) + (6.0f * oneMinusTSquared * tSquared * p2) + (4.0f * oneMinusT * tCubed * p3) + (tSquared * tCubed * p4);
+
+    return glm::translate(glm::mat4(1.0f), posBezier);
 }

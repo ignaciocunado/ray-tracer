@@ -67,6 +67,8 @@ struct ExtraFeatures {
     bool enableGlossyReflection = false;
     bool enableMipmapTextureFiltering = false;
     bool enableMotionBlur = false;
+    int motionBlurSamples = 0;
+    float movement = 0.0f;
 
     // Parameters for glossy reflection
     uint32_t numGlossySamples = 1;
@@ -77,7 +79,7 @@ struct ExtraFeatures {
 
     // Parameters for Depth of Field
     float depthOfFieldDistance = 1.0f;
-    float depthOfFieldSquareLength = 0.1f;
+    float depthOfFieldCircleDiameter = 0.1f;
     uint32_t numDepthOfFieldSamples = 5;
 };
 
